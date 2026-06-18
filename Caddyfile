@@ -1,0 +1,3 @@
+x402-research.agfarms.dev {
+	reverse_proxy gateway:8091
+}

@@ -1,0 +1,155 @@
+port: 8091
+recipientAddress: "${RECIPIENT_ADDRESS}"
+network: "${NETWORK:-base-sepolia}"
+facilitatorUrl: "${FACILITATOR_URL:-https://facilitator.x402.rs}"
+defaultPrice: "0.001"
+
+# feed402 protocol compliance layer (see github.com/.../feed402 SPEC).
+# When enabled, serves /.well-known/feed402.json and wraps every paid
+# response in the feed402 §3 envelope (data + citation + receipt).
+feed402:
+  enabled: true
+  name: x402-research-gateway
+  version: "0.1.0"
+  spec: "feed402/0.2"
+  citationPolicy: "mixed"   # per-route licenses below override
+  contact: "research@viatika.ai"
+  # feed402 insight-tier endpoint. Synthesizes a short LLM answer over
+  # results from retrievalRouteId. Pricing: cheapest of the three tiers
+  # (SPEC §5). When OPENAI_API_KEY is unset the gateway defaults to the
+  # mock summarizer so it boots without external deps.
+  insight:
+    enabled: true
+    path: /research/insight
+    price: "0.005"
+    description: "Paid LLM-summarized research insight over PubMed retrieval"
+    retrievalRouteId: pubmed-search
+    summarizer: ""          # auto: openai if OPENAI_API_KEY else mock
+    model: gpt-4o-mini
+    maxContextChars: 4000
+
+routes:
+  # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
+
+  - id: pubmed-search
+    path: /research/pubmed/search
+    method: GET
+    description: "Search PubMed biomedical literature (36M+ citations). Covers health, longevity, nutrition, psychedelics, brain chemistry, neuroscience."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: pubmed
+      providerUrl: https://pubmed.ncbi.nlm.nih.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+      path: /esearch.fcgi
+      queryParams:
+        db: pubmed
+        retmode: json
+        retmax: "20"
+      passThrough: [term, retmax, retstart, sort, mindate, maxdate, datetype]
+      timeoutSeconds: 15
+
+  - id: pubmed-fetch
+    path: /research/pubmed/fetch
+    method: GET
+    description: "Fetch PubMed article abstracts by PMID. Returns full structured abstract with MeSH terms."
+    price: "0.002"
+    cacheTtlSeconds: 86400
+    feed402Tier: raw
+    citation:
+      sourcePrefix: pubmed
+      canonicalUrlTemplate: https://pubmed.ncbi.nlm.nih.gov/{id}/
+      providerUrl: https://pubmed.ncbi.nlm.nih.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+      path: /efetch.fcgi
+      queryParams:
+        db: pubmed
+        retmode: xml
+        rettype: abstract
+      passThrough: [id]
+      timeoutSeconds: 15
+
+  # --- Cross-Disciplinary / Polymathic ---
+
+  - id: semantic-scholar-search
+    path: /research/semantic-scholar/search
+    method: GET
+    description: "Search Semantic Scholar (200M+ papers). Physics, math, chemistry, CS, biology, medicine, history. AI-powered TLDR summaries and citation graphs."
+    price: "0.002"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: s2
+      providerUrl: https://www.semanticscholar.org/
+      license: CC-BY-NC-4.0
+    upstream:
+      baseUrl: https://api.semanticscholar.org
+      path: /graph/v1/paper/search
+      passThrough: [query, limit, offset, fields, year, fieldsOfStudy]
+      timeoutSeconds: 20
+
+  - id: openalex-works
+    path: /research/openalex/works
+    method: GET
+    description: "Search OpenAlex scholarly works (hundreds of millions, CC0 open data). All disciplines. Successor to Microsoft Academic Graph."
+    price: "0.001"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: openalex
+      providerUrl: https://openalex.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.openalex.org
+      path: /works
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [search, filter, sort, per_page, page, select]
+      timeoutSeconds: 15
+
+  # --- Clinical Trials / Drug Research ---
+
+  - id: clinicaltrials-search
+    path: /research/clinicaltrials/search
+    method: GET
+    description: "Search ClinicalTrials.gov (400K+ studies). Find clinical trials for psychedelics, longevity interventions, nutrition studies, drug candidates."
+    price: "0.002"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: nct
+      providerUrl: https://clinicaltrials.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://clinicaltrials.gov/api/v2
+      path: /studies
+      queryParams:
+        format: json
+        pageSize: "10"
+      passThrough: ["query.term", "query.cond", "query.intr", filter.overallStatus, pageSize, pageToken, sort]
+      timeoutSeconds: 20
+
+  # --- Chemistry / Compounds ---
+
+  - id: pubchem-compound
+    path: /research/pubchem/compound
+    method: GET
+    description: "Look up chemical compounds in PubChem (300M+ substances). Search by name for DMT, psilocybin, serotonin, dopamine, any compound. Pass ?name=compound_name"
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: raw
+    citation:
+      sourcePrefix: pubchem
+      canonicalUrlTemplate: https://pubchem.ncbi.nlm.nih.gov/#query={name}
+      providerUrl: https://pubchem.ncbi.nlm.nih.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://pubchem.ncbi.nlm.nih.gov/rest/pug
+      pathTemplate: /compound/name/{name}/property/MolecularFormula,MolecularWeight,IUPACName,CanonicalSMILES,IsomericSMILES/JSON
+      passThrough: [name]
+      timeoutSeconds: 15

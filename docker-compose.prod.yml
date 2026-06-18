@@ -1,0 +1,49 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      PORT: 8091
+      RECIPIENT_ADDRESS: ${RECIPIENT_ADDRESS}
+      NETWORK: ${NETWORK:-base-sepolia}
+      FACILITATOR_URL: ${FACILITATOR_URL:-https://facilitator.x402.rs}
+      GATEWAY_CONFIG: ./config/routes.yaml
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      kruse-search:
+        condition: service_healthy
+
+  kruse-search:
+    build:
+      context: /home/gian/jackkruse
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      PORT: 8765
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

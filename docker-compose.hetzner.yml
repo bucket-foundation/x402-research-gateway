@@ -1,0 +1,22 @@
+# Hetzner production deploy for x402-research.agfarms.dev
+# Runs only the gateway (no internal caddy, no kruse-search dependency).
+# Bound to 127.0.0.1:8091 so only the host's system nginx can reach it.
+# TLS + public ingress terminates at host nginx (see /etc/nginx/sites-enabled/x402-research.agfarms.dev).
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: x402-research-gateway:hetzner
+    container_name: x402-research-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8091:8091"
+    environment:
+      PORT: 8091
+      RECIPIENT_ADDRESS: ${RECIPIENT_ADDRESS}
+      NETWORK: ${NETWORK:-base-sepolia}
+      FACILITATOR_URL: ${FACILITATOR_URL:-https://facilitator.x402.rs}
+      GATEWAY_CONFIG: ./config/routes.hetzner.yaml
+    volumes:
+      - ./config:/app/config:ro

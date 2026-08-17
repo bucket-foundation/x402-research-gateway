@@ -28,6 +28,34 @@ including a feed402 `insight` tier.
 Routes, prices, and citation policies are declared in
 [`config/routes.yaml`](config/routes.yaml).
 
+## Architecture: declarative routes + adapters
+
+Provider semantics are separated from HTTP routing, x402 payment, and
+feed402 enveloping behind small composable Go interfaces in
+[`internal/provider`](internal/provider) (`Searcher`, `Fetcher`,
+`Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
+`SyncProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
+remain the cheapest way to add a simple REST upstream, proxied unchanged by
+[`internal/handler/proxy.go`](internal/handler/proxy.go).
+
+An adapter is what a provider graduates to when it needs normalized
+per-record citations for a search-tier `hits` array, or when it will need a
+capability declarative config cannot express (a non-JSON body, a multi-step
+call, pagination semantics). [`internal/provider/registry.go`](internal/provider/registry.go)
+maps a route ID to its adapter; a route with no entry is served purely by
+the declarative path. `Adapter.Capabilities()` reports what a provider
+implements by presence, never by guessing, so an unimplemented capability is
+always a clean "not supported" rather than a silent gap — the gateway's
+`/.well-known/feed402.json` manifest surfaces this per route as an additive
+`capabilities` array.
+
+**Adding a new adapter** is one new file in `internal/provider/` — a
+`Normalizer` (upstream body → normalized records) and a `CitationProvider`
+(usually `GenericCitationProvider{}`, which handles the common
+prefix-plus-id case) — plus one entry in `DefaultRegistry()`. No other file
+changes.
+
 ## Quick start
 
 ```bash

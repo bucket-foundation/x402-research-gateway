@@ -81,7 +81,7 @@ func (o *openAISummarizer) summarize(ctx context.Context, q string, ctxs []strin
 		"model": o.model,
 		"messages": []map[string]string{
 			{
-				"role": "system",
+				"role":    "system",
 				"content": "You are a research-summarization agent. Answer the user's question in 2-3 sentences using ONLY the provided context. If the context is insufficient say so. Never fabricate citations.",
 			},
 			{
@@ -194,10 +194,7 @@ func (h *Handler) handleInsight(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build hits + context snippets.
-	hits := []feed402Hit{}
-	if parser, ok := h.hitParsers[retrievalRoute.ID]; ok {
-		hits = parser(retrievalRoute, upstream.Body)
-	}
+	hits := h.hitsForRoute(retrievalRoute.ID, upstream.Body)
 	snippets := extractSnippets(upstream.Body, cfg.MaxContextChars)
 
 	// Summarize.

@@ -44,6 +44,13 @@ type feed402RouteEntry struct {
 	Description string          `json:"description,omitempty"`
 	Price       feed402TierSpec `json:"price"`
 	Citation    feed402RouteCit `json:"citation,omitempty"`
+	// Capabilities is additive, v0.3-shaped groundwork (x402-research-
+	// gateway#2 / #1): the capability vocabulary this route's adapter
+	// implements, computed from internal/provider.Adapter.Capabilities().
+	// A route with no registered adapter — the declarative-only proxy path
+	// — omits this field entirely rather than reporting an empty array, so
+	// "no adapter" and "adapter implements nothing" stay distinguishable.
+	Capabilities []string `json:"capabilities,omitempty"`
 }
 
 type feed402RouteCit struct {
@@ -84,6 +91,67 @@ type feed402RetrievalProvenance struct {
 	Model string  `json:"model"`
 	Score float64 `json:"score"`
 	Rank  int     `json:"rank"`
+}
+
+// feed402Hit is the per-hit re-verification handle emitted on search-tier
+// envelopes. It is intentionally minimal — agents re-fetch the full record
+// via the canonical URL or a sibling raw-tier route. Populated from
+// internal/provider.Hit, computed by a route's registered adapter
+// (Normalizer + CitationProvider); a route with no adapter, or whose
+// adapter implements neither, emits no `hits` array at all, which is
+// spec-valid.
+type feed402Hit struct {
+	SourceID     string `json:"source_id"`
+	CanonicalURL string `json:"canonical_url,omitempty"`
+	Rank         int    `json:"rank"`
+}
+
+// hitsForRoute extracts per-hit citation handles for a search-tier response
+// via the route's registered adapter, when one implements both Normalizer
+// and CitationProvider. Returns nil for a route with no adapter, or whose
+// adapter implements neither capability — the same "no hits array" outcome
+// as before x402-research-gateway#2, now routed through the adapter
+// registry instead of a hardcoded per-route parser map.
+func (h *Handler) hitsForRoute(routeID string, body []byte) []feed402Hit {
+	if h.providers == nil {
+		return nil
+	}
+	adapter, ok := h.providers[routeID]
+	if !ok || adapter.Normalizer == nil || adapter.CitationProvider == nil {
+		return nil
+	}
+	route := h.findRouteByID(routeID)
+	if route == nil {
+		return nil
+	}
+	records := adapter.Normalizer.Normalize(body)
+	providerHits := adapter.CitationProvider.Citations(route, records)
+	if len(providerHits) == 0 {
+		return nil
+	}
+	hits := make([]feed402Hit, len(providerHits))
+	for i, ph := range providerHits {
+		hits[i] = feed402Hit{SourceID: ph.SourceID, CanonicalURL: ph.CanonicalURL, Rank: ph.Rank}
+	}
+	return hits
+}
+
+// capabilitiesForRoute reports the capability vocabulary a route's adapter
+// implements, or nil when the route has no adapter (pure declarative proxy).
+func (h *Handler) capabilitiesForRoute(routeID string) []string {
+	adapter, ok := h.providers[routeID]
+	if !ok {
+		return nil
+	}
+	caps := adapter.Capabilities()
+	if len(caps) == 0 {
+		return nil
+	}
+	out := make([]string, len(caps))
+	for i, c := range caps {
+		out[i] = string(c)
+	}
+	return out
 }
 
 type feed402Receipt struct {
@@ -144,6 +212,7 @@ func (h *Handler) buildFeed402Manifest() feed402Manifest {
 				ProviderURL:  r.Citation.ProviderURL,
 				License:      licenseFor(r, &f),
 			},
+			Capabilities: h.capabilitiesForRoute(r.ID),
 		}
 		routes = append(routes, entry)
 		tierRoutes[r.Feed402Tier] = append(tierRoutes[r.Feed402Tier], entry)
@@ -226,14 +295,10 @@ func (h *Handler) wrapFeed402Envelope(
 		tx = "pending:" + shortHash(payer, req.URL.Path, req.URL.RawQuery)
 	}
 
-	// Extract per-hit provenance if the route has a registered parser
-	// (search-tier routes on recognized upstreams).
-	var hits []feed402Hit
-	if h.hitParsers != nil {
-		if parser, ok := h.hitParsers[route.ID]; ok {
-			hits = parser(route, upstreamBody)
-		}
-	}
+	// Extract per-hit provenance if the route has a registered adapter
+	// implementing both Normalizer and CitationProvider (search-tier routes
+	// on recognized upstreams).
+	hits := h.hitsForRoute(route.ID, upstreamBody)
 
 	env := feed402Envelope{
 		Data:     dataField,

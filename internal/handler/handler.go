@@ -18,6 +18,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/provider"
 )
 
 // Handler handles x402-protected research API requests.
@@ -27,8 +28,8 @@ type Handler struct {
 	x402srv    *x402http.HTTPServer
 	routeIndex map[string]*config.RouteConfig // "GET /path" -> config
 	httpClient *http.Client
-	hitParsers map[string]hitParser // route.ID -> per-upstream hit extractor
-	summarizer summarizer           // feed402 insight-tier LLM (mock or openai)
+	providers  provider.Registry // route.ID -> adapter (search/fetch/citation/...)
+	summarizer summarizer        // feed402 insight-tier LLM (mock or openai)
 }
 
 // chiHTTPAdapter implements x402http.HTTPAdapter for net/http requests.
@@ -123,7 +124,7 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		x402srv:    x402srv,
 		routeIndex: routeIndex,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
-		hitParsers: defaultHitParsers(),
+		providers:  provider.DefaultRegistry(),
 	}
 	if cfg.Feed402.Enabled && cfg.Feed402.Insight.Enabled {
 		h.summarizer = newSummarizer(cfg.Feed402.Insight)

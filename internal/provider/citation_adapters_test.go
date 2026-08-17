@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -297,5 +298,45 @@ func TestCitationAdapters_CapabilityReporting(t *testing.T) {
 	// The search adapters gained no citation capability.
 	if OpenAlexWorksAdapter.Supports(CapReferences) || OpenAlexWorksAdapter.Supports(CapCitedBy) {
 		t.Error("the search adapter must not claim citation capabilities")
+	}
+}
+
+// Every per-edge fact OpenCitations publishes survives, including the ones
+// the edge model has no typed field for.
+func TestOpenCitations_AnnotationsAndCoverage(t *testing.T) {
+	query := mustIdent(t, identity.SchemeDOI, "10.1234/citing")
+	edges := OpenCitationsReferencesAdapter.CitationGraphProvider.Edges(
+		query, []byte(openCitationsFixture), citAt)
+
+	if len(edges) != 2 {
+		t.Fatalf("got %d edges", len(edges))
+	}
+	ann := edges[0].Annotations
+	for k, want := range map[string]string{
+		"creation": "2018-02", "timespan": "P1Y", "journal_sc": "no", "author_sc": "no",
+	} {
+		if ann[k] != want {
+			t.Errorf("annotation %s = %q, want %q", k, ann[k], want)
+		}
+	}
+	// An edge the provider published without annotations carries none
+	// rather than empty strings that would read as asserted values.
+	if len(edges[1].Annotations) != 0 {
+		t.Errorf("absent annotations must stay absent, got %v", edges[1].Annotations)
+	}
+
+	// The coverage statement names the collection that answered.
+	cr, ok := OpenCitationsReferencesAdapter.CitationGraphProvider.(CoverageReporter)
+	if !ok {
+		t.Fatal("OpenCitations must report which collection answered")
+	}
+	coverage := cr.Coverage()
+	for _, want := range []string{"Index v2", "uneven", "2026-08-17"} {
+		if !strings.Contains(coverage, want) {
+			t.Errorf("coverage statement %q missing %q", coverage, want)
+		}
+	}
+	if _, ok := CrossrefReferencesAdapter.CitationGraphProvider.(CoverageReporter); ok {
+		t.Log("Crossref reports coverage too; the interface is optional either way")
 	}
 }

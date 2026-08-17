@@ -107,19 +107,48 @@ func (o openCitationsGraph) Edges(query identity.Identifier, body []byte, at tim
 		if !okS || !okT {
 			continue
 		}
-		edges = append(edges, citation.Edge{
+		edge := citation.Edge{
 			Direction:      o.direction,
 			Source:         source,
 			Target:         target,
 			ProviderEdgeID: r.OCI,
 			RetrievedAt:    stamp,
-		})
+		}
+		// creation, timespan, journal_sc, and author_sc are published per
+		// edge and have no typed field in the edge model, so they are kept
+		// under the provider's own field names.
+		for k, v := range map[string]string{
+			"creation": r.Creation, "timespan": r.Timespan,
+			"journal_sc": r.JournalSC, "author_sc": r.AuthorSC,
+		} {
+			if v == "" {
+				continue
+			}
+			if edge.Annotations == nil {
+				edge.Annotations = map[string]string{}
+			}
+			edge.Annotations[k] = v
+		}
+		edges = append(edges, edge)
 	}
 	return edges
 }
 
 func (o openCitationsGraph) EdgePagination([]byte) (string, bool, string) {
 	return "none", false, ""
+}
+
+// Coverage states which collection answered. OpenCitations reorganized its
+// collections: the per-source indexes (COCI over Crossref, DOCI over
+// DataCite, POCI over PubMed) are served through one unified Index at
+// api.opencitations.net/index/v2, and the separate COCI v1 endpoint the
+// registry used to name is retired. Coverage still depends on publishers
+// depositing open references, which is uneven by publisher, discipline, and
+// era, so an empty answer is this collection having no edge on record.
+func (openCitationsGraph) Coverage() string {
+	return "OpenCitations Index v2, the unified index over Crossref, DataCite, and PubMed " +
+		"deposited open references. Coverage is uneven by publisher, discipline, and era. " +
+		"Verified 2026-08-17."
 }
 
 // OpenCitationsReferencesAdapter backs route ID "opencitations-references".

@@ -354,3 +354,36 @@ func TestManifest_AdvertisesCitationOperations(t *testing.T) {
 		t.Errorf("manifest capabilities should include both directions, got %v", m.Capabilities)
 	}
 }
+
+// The coverage statement reaches the response, whatever the outcome, so a
+// consumer reading edge_count knows whose view it is looking at.
+func TestFanOutCitations_CoverageStatementIsReported(t *testing.T) {
+	h := citationsTestHandler(t, serve(t, 200, ocDisagreeBody).URL, serve(t, 200, crDisagreeBody).URL)
+
+	_, reports := h.fanOutCitations(context.Background(), citation.DirectionReferences, testQueryDOI(t))
+	var oc citation.ProviderReport
+	for _, r := range reports {
+		if r.Provider == "opencitations-references" {
+			oc = r
+		}
+	}
+	if !strings.Contains(oc.Coverage, "Index v2") {
+		t.Errorf("OpenCitations coverage statement missing from the report: %q", oc.Coverage)
+	}
+
+	// It is present even when the provider was never called, so a caller
+	// reading unsupported_identifier still knows what it would have asked.
+	openalexID, _ := identity.New(identity.SchemeOpenAlex, "W1")
+	_, reports = h.fanOutCitations(context.Background(), citation.DirectionReferences, openalexID)
+	for _, r := range reports {
+		if r.Provider != "opencitations-references" {
+			continue
+		}
+		if r.Outcome != citation.OutcomeUnsupportedIdentifier {
+			t.Fatalf("precondition: outcome = %q", r.Outcome)
+		}
+		if r.Coverage == "" {
+			t.Error("coverage must be stated even for a provider that was not called")
+		}
+	}
+}

@@ -352,3 +352,48 @@ routes:
         mailto: research@viatika.ai
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- Crossref (x402-research-gateway#23) ---
+  # Metadata is CC0. Content behind a `link` is the publisher's and carries
+  # its own terms; the two rights are recorded separately in providers.yaml.
+  - id: crossref-search
+    path: /research/crossref/search
+    method: GET
+    description: "Search Crossref DOI metadata (~160M works, CC0). All disciplines. The DOI registration agency for most scholarly publishing."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: crossref
+      providerUrl: https://www.crossref.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.crossref.org
+      path: /works
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        mailto: research@viatika.ai
+      passThrough: [query, rows, offset, cursor, filter, sort, select, from-index-date]
+      timeoutSeconds: 20
+
+  - id: crossref-fetch
+    path: /research/crossref/fetch
+    method: GET
+    description: "Fetch a single Crossref work record by DOI."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: crossref
+      providerUrl: https://www.crossref.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.crossref.org
+      pathTemplate: /works/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        mailto: research@viatika.ai
+      passThrough: [id]
+      timeoutSeconds: 20

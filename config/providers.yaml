@@ -1726,15 +1726,24 @@ providers:
     source_prefix: "crossref"
     canonical_url: "https://doi.org/{doi}"
     tier_fit: "raw (`/works/{doi}`), query"
-    auth: "none (email polite = \"mailto=...\")"
-    rate_limit: "50/s polite pool"
+    auth: "none; `mailto` joins the polite pool"
+    rate_limit: "public pool 5 req/s single-record and 1 req/s list; polite pool 10 req/s single-record and 3 req/s list, 3 concurrent (changed 2025-12-01)"
     license: "CC0"
     rights:
       metadata_license: "CC0"
       redistribution: allowed
+      notes: "CC0 covers the Crossref metadata record. It does not cover content at a `link` URL, which is the publisher's and carries its own terms, described by the work's `license` array where one was deposited. Metadata rights and content rights are separate; unknown content rights are not permission."
+    identifier_schemes:
+      - doi
+    pagination: "rows + offset up to 10000; cursor=* with next-cursor for deep paging, cursors expire after 5 minutes"
+    bulk_access: false
+    incremental_updates: true
+    last_verified: "2026-08-17"
     route_ids:
+      - crossref-search
+      - crossref-fetch
       - crossref-references
-    notes: "Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly. Verified 2026-08-17."
+    notes: "Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly; an absent list is a publisher that did not deposit, never evidence a work has no references. Crossmark update relations come from `update-to` and `updated-by`. Bulk: whole-corpus monthly dumps are the paid Metadata Plus tier, so bulk_access is false for this gateway; incremental harvest via `from-index-date` plus cursor paging is open. Verified 2026-08-17."
 
   - provider_id: "datacite"
     name: "DataCite"
@@ -2031,10 +2040,24 @@ providers:
     rights:
       metadata_license: "CC0"
       redistribution: allowed
+    identifier_schemes:
+      - doi
+      - pmid
+      - omid
+    pagination: "none; /references/{id} and /citations/{id} return the whole edge set for an identifier"
+    bulk_access: true
+    incremental_updates: false
+    formats:
+      - json
+      - csv
+      - rdf
+      - n-triples
+      - scholix
+    last_verified: "2026-08-17"
     route_ids:
       - opencitations-references
       - opencitations-cited-by
-    notes: "Citation relations as data. Index v2 at api.opencitations.net supersedes the COCI v1 path; identifiers take a scheme prefix (doi:, pmid:, omid:). Edge fields: oci, citing, cited, creation, timespan, journal_sc, author_sc. Verified 2026-08-17."
+    notes: "Citation relations as data. Index v2 at api.opencitations.net supersedes the COCI v1 path, and the per-source indexes (COCI over Crossref, DOCI over DataCite, POCI over PubMed) are served through the one unified Index. Identifiers take a scheme prefix (doi:, pmid:, omid:). Edge fields: oci, citing, cited, creation, timespan, journal_sc, author_sc, all preserved on the edge. Bulk dumps of Index (2.5B+ citations, released 2026-07-28) and Meta (147M+ entities, released 2026-06-27) are published to Zenodo, Figshare, and the Internet Archive; cadence is periodic rather than scheduled. Coverage depends on publishers depositing open references and is uneven by publisher, discipline, and era, so an empty answer is this collection having no edge on record. Verified 2026-08-17."
 
   - provider_id: "scite-ai"
     name: "Scite.ai"

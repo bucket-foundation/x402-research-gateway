@@ -218,6 +218,14 @@ type CitationGraphProvider interface {
 	EdgePagination(body []byte) (model string, truncated bool, nextCursor string)
 }
 
+// CoverageReporter states what a provider's collection covers, in one
+// sentence a consumer can read beside an edge or result count. Optional: a
+// provider that does not implement it reports no coverage statement rather
+// than a generated one.
+type CoverageReporter interface {
+	Coverage() string
+}
+
 // SyncCapability is what a SyncProvider reports about bulk/incremental
 // access.
 type SyncCapability struct {

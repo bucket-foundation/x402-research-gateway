@@ -36,6 +36,8 @@ field-by-field migration and deprecation window.
 | `/research/opencitations/references` | OpenCitations outbound references | query |
 | `/research/opencitations/cited-by` | OpenCitations inbound citations | query |
 | `/research/crossref/references` | Crossref deposited reference list | query |
+| `/research/crossref/search` | Crossref DOI metadata search | query |
+| `/research/crossref/fetch` | Crossref work record by DOI | raw |
 
 Routes, prices, and citation policies are declared in
 [`config/routes.yaml`](config/routes.yaml).

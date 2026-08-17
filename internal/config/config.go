@@ -207,7 +207,7 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 	// feed402 top-level defaults.
 	if cfg.Feed402.Enabled {
 		if cfg.Feed402.Spec == "" {
-			cfg.Feed402.Spec = "feed402/0.2"
+			cfg.Feed402.Spec = "feed402/0.3"
 		}
 		if cfg.Feed402.Name == "" {
 			cfg.Feed402.Name = "x402-research-gateway"

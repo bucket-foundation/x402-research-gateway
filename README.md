@@ -8,9 +8,11 @@ protocol. An AI agent (or any client) with a Base wallet can discover, pay
 for, and query research data with a single HTTP request.
 
 It is also a reference [feed402](https://github.com/bucket-foundation/feed402)
-merchant: when enabled, it serves `/.well-known/feed402.json` and wraps every
-paid response in the feed402 citation envelope (data + citation + receipt),
-including a feed402 `insight` tier.
+merchant speaking canonical **feed402/0.3**: when enabled, it serves
+`/.well-known/feed402.json` and wraps every paid response in the feed402
+citation envelope (data + citation array + receipt), including a feed402
+`insight` tier. See [`DEPRECATIONS.md`](DEPRECATIONS.md) for the 0.2 → 0.3
+field-by-field migration and deprecation window.
 
 ## Endpoints (7 + insight)
 

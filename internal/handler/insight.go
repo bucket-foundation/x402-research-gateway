@@ -219,15 +219,26 @@ func (h *Handler) handleInsight(w http.ResponseWriter, r *http.Request) {
 		txHash = "pending:" + shortHash(payer, insightRoute.Path, body.Question)
 	}
 
-	dataBytes, _ := json.Marshal(map[string]interface{}{
+	// data.hits (SPEC §7.2, deprecated, sunset feed402/0.5): the insight
+	// answer is a single synthesized statement, not a result list, so its
+	// citation array stays one element (the top hit, or a synthetic
+	// fallback) rather than expanding per-hit the way search-tier routes
+	// do in wrapFeed402Envelope. The full hit list survives as this
+	// deprecated alias so nothing already exposed is lost during the
+	// migration window.
+	dataMap := map[string]interface{}{
 		"question":  body.Question,
 		"summary":   summary,
 		"retrieval": retrievalRoute.ID,
-	})
+	}
+	if len(hits) > 0 {
+		dataMap["hits"] = hits
+	}
+	dataBytes, _ := json.Marshal(dataMap)
 	env := feed402Envelope{
-		Data:     dataBytes,
-		Citation: citation,
-		Hits:     hits,
+		Data:           dataBytes,
+		Citation:       []feed402CitationSource{citation},
+		CitationLegacy: &citation,
 		Receipt: feed402Receipt{
 			Tier:     "insight",
 			PriceUSD: parsePriceUSD(insightRoute.Price),

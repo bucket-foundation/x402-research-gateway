@@ -35,6 +35,35 @@ func TestLoadFromFile_ResolveBlock(t *testing.T) {
 		if len(c.Routes) == 0 {
 			t.Errorf("%s: no routes loaded", path)
 		}
+		// The citation-graph block and its seven provider routes
+		// (x402-research-gateway#6).
+		cit := c.Feed402.Citations
+		if !cit.Enabled || cit.Path != "/research/citations" || cit.MaxConcurrency != 4 || cit.TimeoutSeconds != 10 {
+			t.Errorf("%s: citations config = %+v", path, cit)
+		}
+		byID := map[string]bool{}
+		for i := range c.Routes {
+			byID[c.Routes[i].ID] = true
+		}
+		for _, id := range []string{
+			"openalex-references", "openalex-cited-by",
+			"semantic-scholar-references", "semantic-scholar-cited-by",
+			"opencitations-references", "opencitations-cited-by",
+			"crossref-references",
+		} {
+			if !byID[id] {
+				t.Errorf("%s: citation route %q missing", path, id)
+			}
+		}
+		// Every route that existed before this change is still declared.
+		for _, id := range []string{
+			"pubmed-search", "pubmed-fetch", "semantic-scholar-search",
+			"openalex-works", "clinicaltrials-search", "pubchem-compound",
+		} {
+			if !byID[id] {
+				t.Errorf("%s: pre-existing route %q was dropped", path, id)
+			}
+		}
 	}
 }
 

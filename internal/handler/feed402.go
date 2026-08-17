@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
 	"github.com/gianyrox/x402-research-gateway/internal/provider"
@@ -236,8 +237,28 @@ func (h *Handler) buildOperationFor(r *config.RouteConfig) feed402Operation {
 		}
 		return op
 	}
+	// The citation-graph route fans out over several providers, so its
+	// capability comes from the direction the request carries rather than
+	// from one adapter. It advertises both directions and every scheme the
+	// resolver normalizes.
+	if r.ID == "feed402-citations" {
+		op.Capability = string(provider.CapReferences)
+		for _, s := range identity.Schemes() {
+			op.IdentifierSchemes = append(op.IdentifierSchemes, string(s))
+		}
+		return op
+	}
 	adapter, ok := h.providers[r.ID]
 	switch {
+	case ok && adapter.CitationGraphProvider != nil:
+		switch adapter.CitationGraphProvider.Direction() {
+		case citation.DirectionReferences:
+			op.Capability = string(provider.CapReferences)
+		case citation.DirectionCitedBy:
+			op.Capability = string(provider.CapCitedBy)
+		}
+		model, _, _ := adapter.CitationGraphProvider.EdgePagination(nil)
+		op.PaginationModel = model
 	case ok && adapter.Searcher != nil:
 		op.Capability = "search"
 		op.PaginationModel = adapter.Searcher.PaginationModel()

@@ -66,6 +66,29 @@ type Feed402Config struct {
 	// relation graph in the SPEC §3 envelope with one citation per
 	// contributing provider.
 	Resolve ResolveConfig `yaml:"resolve"`
+	// Citations (optional) turns on the citation-graph endpoint
+	// (x402-research-gateway#6). When enabled the gateway registers a POST
+	// handler at Citations.Path that accepts {identifier, direction} and
+	// returns normalized edges from every provider serving that direction,
+	// with a per-provider account of what each one returned.
+	Citations CitationsConfig `yaml:"citations"`
+}
+
+// CitationsConfig configures the citation-graph endpoint.
+type CitationsConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/citations"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts fan-out to these route ids. Empty means
+	// every route whose adapter implements CitationGraphProvider.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// MaxConcurrency bounds simultaneous upstream calls. Default 4.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+	// TimeoutSeconds bounds each provider call. A provider that exceeds it
+	// is reported as a timeout, never as a provider with no edges.
+	// Default 10.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
 }
 
 // ResolveConfig configures the identity-resolution endpoint.
@@ -287,6 +310,23 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Resolve.TimeoutSeconds == 0 {
 				cfg.Feed402.Resolve.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.Citations.Enabled {
+			if cfg.Feed402.Citations.Path == "" {
+				cfg.Feed402.Citations.Path = "/research/citations"
+			}
+			if cfg.Feed402.Citations.Price == "" {
+				cfg.Feed402.Citations.Price = "0.005"
+			}
+			if cfg.Feed402.Citations.Description == "" {
+				cfg.Feed402.Citations.Description = "Normalized citation graph across providers"
+			}
+			if cfg.Feed402.Citations.MaxConcurrency == 0 {
+				cfg.Feed402.Citations.MaxConcurrency = 4
+			}
+			if cfg.Feed402.Citations.TimeoutSeconds == 0 {
+				cfg.Feed402.Citations.TimeoutSeconds = 10
 			}
 		}
 	}

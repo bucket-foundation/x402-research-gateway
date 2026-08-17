@@ -27,6 +27,14 @@ field-by-field migration and deprecation window.
 | `/research/kruse/search` | Jack Kruse corpus (biophysics) | query |
 | `/research/insight` | LLM-summarized insight over PubMed retrieval | insight |
 | `/research/resolve` | Cross-provider scholarly identity resolution | query |
+| `/research/citations` | Citation graph across four providers | query |
+| `/research/openalex/references` | OpenAlex outbound citations | query |
+| `/research/openalex/cited-by` | OpenAlex inbound citations | query |
+| `/research/semantic-scholar/references` | Semantic Scholar outbound citations | query |
+| `/research/semantic-scholar/cited-by` | Semantic Scholar inbound citations | query |
+| `/research/opencitations/references` | OpenCitations outbound references | query |
+| `/research/opencitations/cited-by` | OpenCitations inbound citations | query |
+| `/research/crossref/references` | Crossref deposited reference list | query |
 
 Routes, prices, and citation policies are declared in
 [`config/routes.yaml`](config/routes.yaml).
@@ -37,7 +45,8 @@ Provider semantics are separated from HTTP routing, x402 payment, and
 feed402 enveloping behind small composable Go interfaces in
 [`internal/provider`](internal/provider) (`Searcher`, `Fetcher`,
 `Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
-`SyncProvider`, `IdentityProvider`, `DescriptorProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+`SyncProvider`, `IdentityProvider`, `DescriptorProvider`,
+`CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
 declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
 remain the cheapest way to add a simple REST upstream, proxied unchanged by
 [`internal/handler/proxy.go`](internal/handler/proxy.go).

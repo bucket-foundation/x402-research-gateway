@@ -43,6 +43,17 @@ feed402:
     # Minimum title/author similarity reported as possible_same_work. It is
     # never promoted to same_work at any score.
     similarityThreshold: 0.82
+  # Citation graph across providers (x402-research-gateway#6). Takes an
+  # identifier plus a direction, asks every provider serving that
+  # direction, and reports what each one returned including nothing.
+  citations:
+    enabled: true
+    path: /research/citations
+    price: "0.005"
+    description: "Normalized citation graph across OpenAlex, Semantic Scholar, OpenCitations, and Crossref"
+    providerRouteIds: []
+    maxConcurrency: 4
+    timeoutSeconds: 10
 
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
@@ -169,3 +180,145 @@ routes:
       pathTemplate: /compound/name/{name}/property/MolecularFormula,MolecularWeight,IUPACName,CanonicalSMILES,IsomericSMILES/JSON
       passThrough: [name]
       timeoutSeconds: 15
+
+  # --- Citation graph (x402-research-gateway#6) ---
+  # One route per provider per direction. The /research/citations endpoint
+  # fans out across these; each is also independently addressable, so
+  # single-provider access stays available.
+
+  - id: openalex-references
+    path: /research/openalex/references
+    method: GET
+    description: "OpenAlex outbound citations: the works an OpenAlex work references."
+    price: "0.001"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: openalex
+      providerUrl: https://openalex.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.openalex.org
+      path: /works
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [filter, per_page, cursor, select]
+      timeoutSeconds: 15
+
+  - id: openalex-cited-by
+    path: /research/openalex/cited-by
+    method: GET
+    description: "OpenAlex inbound citations: the works citing an OpenAlex work."
+    price: "0.001"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: openalex
+      providerUrl: https://openalex.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.openalex.org
+      path: /works
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [filter, per_page, cursor, select]
+      timeoutSeconds: 15
+
+  - id: semantic-scholar-references
+    path: /research/semantic-scholar/references
+    method: GET
+    description: "Semantic Scholar outbound citations for a paper."
+    price: "0.002"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: s2
+      providerUrl: https://www.semanticscholar.org/
+      license: CC-BY-NC-4.0
+    upstream:
+      baseUrl: https://api.semanticscholar.org
+      pathTemplate: /graph/v1/paper/{id}/references
+      passThrough: [id, fields, offset, limit]
+      timeoutSeconds: 20
+
+  - id: semantic-scholar-cited-by
+    path: /research/semantic-scholar/cited-by
+    method: GET
+    description: "Semantic Scholar inbound citations for a paper."
+    price: "0.002"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: s2
+      providerUrl: https://www.semanticscholar.org/
+      license: CC-BY-NC-4.0
+    upstream:
+      baseUrl: https://api.semanticscholar.org
+      pathTemplate: /graph/v1/paper/{id}/citations
+      passThrough: [id, fields, offset, limit]
+      timeoutSeconds: 20
+
+  # OpenCitations rate-limits to 180 req/min per IP without an access
+  # token. Set OPENCITATIONS_TOKEN to send one; the gateway omits the
+  # header when the variable is unset, which the API accepts.
+  - id: opencitations-references
+    path: /research/opencitations/references
+    method: GET
+    description: "OpenCitations Index outbound references for a DOI or PMID."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: opencitations
+      providerUrl: https://opencitations.net/
+      license: CC0
+    upstream:
+      baseUrl: https://api.opencitations.net
+      pathTemplate: /index/v2/references/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20
+
+  - id: opencitations-cited-by
+    path: /research/opencitations/cited-by
+    method: GET
+    description: "OpenCitations Index inbound citations for a DOI or PMID."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: opencitations
+      providerUrl: https://opencitations.net/
+      license: CC0
+    upstream:
+      baseUrl: https://api.opencitations.net
+      pathTemplate: /index/v2/citations/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20
+
+  # Crossref serves outbound references only. There is no cited-by route
+  # because Crossref has no cited-by endpoint, and a missing route reports
+  # as unsupported_direction rather than as a provider with no edges.
+  - id: crossref-references
+    path: /research/crossref/references
+    method: GET
+    description: "Crossref deposited reference list for a DOI."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: crossref
+      providerUrl: https://www.crossref.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.crossref.org
+      pathTemplate: /works/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        mailto: research@viatika.ai
+      passThrough: [id]
+      timeoutSeconds: 20

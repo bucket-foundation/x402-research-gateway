@@ -147,6 +147,39 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		routeIndex[resKey] = &cfg.Routes[len(cfg.Routes)-1]
 	}
 
+	// Citation-graph synthetic route (x402-research-gateway#6).
+	if cfg.Feed402.Enabled && cfg.Feed402.Citations.Enabled {
+		cit := cfg.Feed402.Citations
+		cfg.Routes = append(cfg.Routes, config.RouteConfig{
+			ID:          "feed402-citations",
+			Path:        cit.Path,
+			Method:      "POST",
+			Description: cit.Description,
+			MimeType:    "application/json",
+			Price:       cit.Price,
+			Feed402Tier: "query",
+			Citation: config.RouteCitation{
+				SourcePrefix: "citations",
+				License:      cfg.Feed402.CitationPolicy,
+			},
+		})
+		citKey := "POST " + cit.Path
+		x402Routes[citKey] = x402http.RouteConfig{
+			Description: cit.Description,
+			MimeType:    "application/json",
+			Accepts: x402http.PaymentOptions{
+				{
+					Scheme:            "exact",
+					Network:           network,
+					PayTo:             cfg.RecipientAddress,
+					Price:             cit.Price,
+					MaxTimeoutSeconds: 60,
+				},
+			},
+		}
+		routeIndex[citKey] = &cfg.Routes[len(cfg.Routes)-1]
+	}
+
 	x402srv := x402http.NewServer(
 		x402Routes,
 		x402.WithFacilitatorClient(facilitatorClient),
@@ -200,6 +233,10 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		}
 		if r.ID == "feed402-resolve" {
 			h.router.Post(r.Path, h.handleResolve)
+			continue
+		}
+		if r.ID == "feed402-citations" {
+			h.router.Post(r.Path, h.handleCitations)
 			continue
 		}
 		switch r.Method {

@@ -248,6 +248,14 @@ func (h *Handler) buildOperationFor(r *config.RouteConfig) feed402Operation {
 		}
 		return op
 	}
+	// Federated search selects providers by capability at request time, so
+	// its own capability is the one it defaults to. Every capability it can
+	// route on is discoverable from the per-route operations below.
+	if r.ID == "feed402-federated" {
+		op.Capability = string(provider.CapSearch)
+		op.PaginationModel = "none"
+		return op
+	}
 	adapter, ok := h.providers[r.ID]
 	switch {
 	case ok && adapter.CitationGraphProvider != nil:

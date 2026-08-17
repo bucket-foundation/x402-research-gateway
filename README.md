@@ -28,6 +28,7 @@ field-by-field migration and deprecation window.
 | `/research/insight` | LLM-summarized insight over PubMed retrieval | insight |
 | `/research/resolve` | Cross-provider scholarly identity resolution | query |
 | `/research/citations` | Citation graph across four providers | query |
+| `/research/federated` | Federated search, POST paid and GET free estimate | query |
 | `/research/openalex/references` | OpenAlex outbound citations | query |
 | `/research/openalex/cited-by` | OpenAlex inbound citations | query |
 | `/research/semantic-scholar/references` | Semantic Scholar outbound citations | query |

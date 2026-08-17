@@ -72,6 +72,27 @@ type Feed402Config struct {
 	// returns normalized edges from every provider serving that direction,
 	// with a per-provider account of what each one returned.
 	Citations CitationsConfig `yaml:"citations"`
+	// Federated (optional) turns on federated multi-provider search
+	// (x402-research-gateway#4). POST at Federated.Path runs a paid
+	// fan-out; GET at the same path is free and returns the cost estimate,
+	// so an agent can price a call before paying for one.
+	Federated FederatedConfig `yaml:"federated"`
+}
+
+// FederatedConfig configures the federated search endpoint.
+type FederatedConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/federated"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts fan-out to these route ids. Empty means
+	// every route whose adapter declares the requested capability.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// MaxConcurrency bounds simultaneous upstream calls. Default 4.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+	// TimeoutSeconds is the fallback per-provider deadline for a route that
+	// declares no upstream timeoutSeconds of its own. Default 10.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
 }
 
 // CitationsConfig configures the citation-graph endpoint.
@@ -327,6 +348,23 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Citations.TimeoutSeconds == 0 {
 				cfg.Feed402.Citations.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.Federated.Enabled {
+			if cfg.Feed402.Federated.Path == "" {
+				cfg.Feed402.Federated.Path = "/research/federated"
+			}
+			if cfg.Feed402.Federated.Price == "" {
+				cfg.Feed402.Federated.Price = "0.005"
+			}
+			if cfg.Feed402.Federated.Description == "" {
+				cfg.Feed402.Federated.Description = "Federated search across every provider declaring a capability"
+			}
+			if cfg.Feed402.Federated.MaxConcurrency == 0 {
+				cfg.Feed402.Federated.MaxConcurrency = 4
+			}
+			if cfg.Feed402.Federated.TimeoutSeconds == 0 {
+				cfg.Feed402.Federated.TimeoutSeconds = 10
 			}
 		}
 	}

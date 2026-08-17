@@ -14,19 +14,29 @@ import "encoding/json"
 type OpenAlexWorksNormalizer struct{}
 
 func (OpenAlexWorksNormalizer) Normalize(body []byte) []NormalizedRecord {
+	// Results are captured as RawMessage as well as decoded, so each
+	// record keeps its original bytes for capabilities that need more than
+	// the id (IdentityProvider reads the `ids` block from them). Decoding
+	// twice is cheap next to the upstream call and keeps this Normalizer's
+	// existing output byte-identical.
 	var parsed struct {
-		Results []struct {
-			ID string `json:"id"`
-		} `json:"results"`
+		Results []json.RawMessage `json:"results"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil
 	}
 	recs := make([]NormalizedRecord, 0, len(parsed.Results))
-	for _, r := range parsed.Results {
+	for _, raw := range parsed.Results {
+		var r struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(raw, &r); err != nil {
+			continue
+		}
 		recs = append(recs, NormalizedRecord{
 			ID:           shortOpenAlexID(r.ID),
 			CanonicalURL: r.ID,
+			Raw:          raw,
 		})
 	}
 	return recs
@@ -61,4 +71,7 @@ var OpenAlexWorksAdapter = &Adapter{
 	Searcher:         openAlexPagePagination{},
 	Normalizer:       OpenAlexWorksNormalizer{},
 	CitationProvider: GenericCitationProvider{},
+
+	IdentityProvider:   openAlexIdentity{},
+	DescriptorProvider: openAlexIdentity{},
 }

@@ -45,6 +45,8 @@ var PubMedSearchAdapter = &Adapter{
 	Searcher:         pubMedSearchOffsetPagination{},
 	Normalizer:       PubMedSearchNormalizer{},
 	CitationProvider: GenericCitationProvider{},
+
+	IdentityProvider: pubMedIdentity{},
 }
 
 // PubMedFetchAdapter backs route ID "pubmed-fetch". No Normalizer or

@@ -27,6 +27,22 @@ feed402:
     summarizer: ""          # auto: openai if OPENAI_API_KEY else mock
     model: gpt-4o-mini
     maxContextChars: 4000
+  # Cross-provider identity resolution (x402-research-gateway#5). Takes one
+  # identifier, asks every route whose adapter implements IdentityProvider,
+  # and returns a relation graph. Provider records are never merged: each
+  # stays an addressable node and the relations between them are the answer.
+  resolve:
+    enabled: true
+    path: /research/resolve
+    price: "0.005"
+    description: "Resolve one scholarly identifier across providers into a relation graph"
+    # Empty providerRouteIds means every identity-capable route.
+    providerRouteIds: []
+    maxConcurrency: 4
+    timeoutSeconds: 10
+    # Minimum title/author similarity reported as possible_same_work. It is
+    # never promoted to same_work at any score.
+    similarityThreshold: 0.82
 
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---

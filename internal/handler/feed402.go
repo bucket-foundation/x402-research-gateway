@@ -34,6 +34,8 @@ import (
 	"time"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/identity"
+	"github.com/gianyrox/x402-research-gateway/internal/provider"
 )
 
 // ---------- Manifest types (mirror feed402 SPEC §1) ----------
@@ -221,6 +223,18 @@ func (h *Handler) buildOperationFor(r *config.RouteConfig) feed402Operation {
 		Method:      r.Method,
 		Tier:        r.Feed402Tier,
 		Description: r.Description,
+	}
+	// The identity-resolution route is gateway-native rather than a proxy
+	// to one upstream, so it has no adapter to read a capability from.
+	// It declares the extension capability directly and lists every
+	// identifier scheme the resolver can normalize, so an agent can tell
+	// before paying whether its identifier is one this gateway handles.
+	if r.ID == "feed402-resolve" {
+		op.Capability = string(provider.CapIdentityResolution)
+		for _, s := range identity.Schemes() {
+			op.IdentifierSchemes = append(op.IdentifierSchemes, string(s))
+		}
+		return op
 	}
 	adapter, ok := h.providers[r.ID]
 	switch {

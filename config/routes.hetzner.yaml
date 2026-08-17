@@ -11,7 +11,7 @@ feed402:
   enabled: true
   name: x402-research-gateway
   version: "0.1.0"
-  spec: "feed402/0.2"
+  spec: "feed402/0.3"
   citationPolicy: "mixed"   # per-route licenses below override
   contact: "research@viatika.ai"
   # feed402 insight-tier endpoint. Synthesizes a short LLM answer over

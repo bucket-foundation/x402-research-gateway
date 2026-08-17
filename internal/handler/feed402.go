@@ -3,16 +3,24 @@
 // When GatewayConfig.Feed402.Enabled is true, the gateway:
 //
 //  1. Serves /.well-known/feed402.json with the discovery manifest
-//     (SPEC §1 / §4).
+//     (SPEC §1 / §1.2 / §4).
 //  2. Wraps every successful paid response in the feed402 envelope
-//     (SPEC §3): {data, citation, receipt}.
+//     (SPEC §3): {data, citation, receipt}, citation always an array.
 //
 // The gateway does NOT own a retrieval index; upstreams do their own
 // retrieval. We therefore omit the optional §4 `index` block and the
-// §3.2 retrieval-provenance fields on citations. A future revision may
-// parse per-upstream response shapes (PubMed ESearch, OpenAlex, etc.) to
-// extract top-hit ids and emit `chunk_id` + retrieval provenance per hit.
-// For v1 compliance we emit a provider-level `source` citation per call.
+// §3.2 retrieval-provenance fields on citations.
+//
+// # feed402/0.3 migration (x402-research-gateway#1)
+//
+// The gateway now speaks canonical feed402/0.3. `citation` is an array on
+// every route, including insight. `citation_legacy` (a copy of
+// `citation[0]`) and the pre-0.3 `data.hits`/`routes`/`tier_routes` fields
+// are retained for the deprecation window per feed402 SPEC §7.2 — sunset at
+// feed402/0.5. See DEPRECATIONS.md for the full field-by-field mapping and
+// the conformance rationale (why the array has one entry for single-record
+// and insight responses, and one-plus-N entries for search-tier responses
+// with adapter-derived hits).
 package handler
 
 import (
@@ -59,18 +67,50 @@ type feed402RouteCit struct {
 	License      string `json:"license,omitempty"`
 }
 
+// feed402Operation mirrors feed402 SPEC §1.2's OperationSpec — the standard
+// replacement for the gateway's private `routes`/`tier_routes` enumeration
+// (SPEC §1.3, §7.2). Fields the gateway cannot populate honestly (schemas,
+// content_types, canonical_identifier) are left empty rather than guessed.
+type feed402Operation struct {
+	OperationID       string   `json:"operation_id"`
+	Capability        string   `json:"capability"`
+	Path              string   `json:"path"`
+	Method            string   `json:"method,omitempty"`
+	Tier              string   `json:"tier,omitempty"`
+	Description       string   `json:"description,omitempty"`
+	PaginationModel   string   `json:"pagination_model,omitempty"`
+	IdentifierSchemes []string `json:"identifier_schemes,omitempty"`
+}
+
 type feed402Manifest struct {
-	Name           string                         `json:"name"`
-	Version        string                         `json:"version"`
-	Spec           string                         `json:"spec"`
-	Chain          string                         `json:"chain"`
-	Wallet         string                         `json:"wallet"`
-	Tiers          map[string]feed402TierSpec     `json:"tiers"`
-	CitationPolicy string                         `json:"citation_policy,omitempty"`
-	CitationTypes  []string                       `json:"citation_types"`
-	Contact        string                         `json:"contact,omitempty"`
-	Routes         []feed402RouteEntry            `json:"routes"`
-	TierRoutes     map[string][]feed402RouteEntry `json:"tier_routes"`
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Spec    string `json:"spec"`
+	Chain   string `json:"chain"`
+	Wallet  string `json:"wallet"`
+	// Capabilities (SPEC §1.1, v0.3, optional) — the union of capability
+	// values declared across Operations, so an agent can skip this merchant
+	// without reading every operation. SHOULD equal the distinct
+	// `capability` values in Operations; where they disagree Operations is
+	// authoritative, per spec.
+	Capabilities   []string                   `json:"capabilities,omitempty"`
+	Tiers          map[string]feed402TierSpec `json:"tiers"`
+	CitationPolicy string                     `json:"citation_policy,omitempty"`
+	CitationTypes  []string                   `json:"citation_types"`
+	Contact        string                     `json:"contact,omitempty"`
+	// Operations (SPEC §1.2, v0.3, optional) — the canonical replacement for
+	// Routes/TierRoutes below.
+	Operations []feed402Operation `json:"operations,omitempty"`
+	// Routes / TierRoutes: pre-0.3 private enumeration fields. Never a spec
+	// field (SPEC §7.2 lists them as such), retained during the deprecation
+	// window (sunset feed402/0.5) because the reference gateway published
+	// them and agents may be reading them. New consumers should read
+	// Operations, or manifestOperations() equivalent, instead.
+	//
+	// Deprecated: use Operations.
+	Routes []feed402RouteEntry `json:"routes"`
+	// Deprecated: use Operations, grouped by Tier.
+	TierRoutes map[string][]feed402RouteEntry `json:"tier_routes"`
 }
 
 // ---------- Envelope types (mirror feed402 SPEC §3) ----------
@@ -84,6 +124,12 @@ type feed402CitationSource struct {
 	CanonicalURL string                      `json:"canonical_url,omitempty"`
 	ChunkID      string                      `json:"chunk_id,omitempty"`
 	Retrieval    *feed402RetrievalProvenance `json:"retrieval,omitempty"`
+	// ResultIndex (SPEC §3.3, v0.3, optional) — zero-based indices into the
+	// envelope's result list (`data.rows`) that this citation grounds.
+	// Explicit binding: when a search-tier response carries per-hit
+	// citations alongside the provider-level query citation, every citation
+	// in the array carries this field per SPEC §3.3 rule 3.
+	ResultIndex []int `json:"result_index,omitempty"`
 }
 
 // feed402RetrievalProvenance mirrors SPEC §3.2 (v0.2 optional).
@@ -154,6 +200,131 @@ func (h *Handler) capabilitiesForRoute(routeID string) []string {
 	return out
 }
 
+// searchPaginationFallback mirrors feed402 types.ts's
+// inferCapabilityFromRoute(): a lossy heuristic for declarative-only routes
+// with no adapter, distinguishing only search from fetch by name.
+func searchPaginationFallback(id, path string) string {
+	haystack := strings.ToLower(id + " " + path)
+	if strings.Contains(haystack, "search") || strings.Contains(haystack, "query") {
+		return "search"
+	}
+	return "fetch"
+}
+
+// buildOperationFor emits the SPEC §1.2 operation entry for one route,
+// reading pagination model / identifier schemes from its adapter when one
+// is registered.
+func (h *Handler) buildOperationFor(r *config.RouteConfig) feed402Operation {
+	op := feed402Operation{
+		OperationID: r.ID,
+		Path:        r.Path,
+		Method:      r.Method,
+		Tier:        r.Feed402Tier,
+		Description: r.Description,
+	}
+	adapter, ok := h.providers[r.ID]
+	switch {
+	case ok && adapter.Searcher != nil:
+		op.Capability = "search"
+		op.PaginationModel = adapter.Searcher.PaginationModel()
+	case ok && adapter.Fetcher != nil:
+		op.Capability = "fetch"
+		op.IdentifierSchemes = adapter.Fetcher.IdentifierSchemes()
+	default:
+		op.Capability = searchPaginationFallback(r.ID, r.Path)
+	}
+	return op
+}
+
+// buildManifestCapabilities returns the union of every route's adapter
+// capabilities, for the manifest-level §1.1 summary field. Deterministic
+// order: iterates h.cfg.Routes, not the registry map.
+func (h *Handler) buildManifestCapabilities() []string {
+	seen := map[string]bool{}
+	var out []string
+	for i := range h.cfg.Routes {
+		for _, c := range h.capabilitiesForRoute(h.cfg.Routes[i].ID) {
+			if !seen[c] {
+				seen[c] = true
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
+
+// searchCitationsAndData builds the v0.3 citation array and the augmented
+// `data` payload for a search-tier response whose route has adapter-derived
+// hits. Returns (nil, nil) when there are no hits, signaling the caller to
+// fall back to the single-citation, unaugmented-data path.
+//
+// Design (DEPRECATIONS.md has the full rationale): the provider-level query
+// citation stays first, carrying an explicit ResultIndex spanning every
+// result so it keeps grounding the response as a whole; one citation per
+// hit follows, each grounding only its own result. `data` gains a `rows`
+// array (so SPEC §3.3's resultList() recognizes a multi-record response and
+// the array is genuinely conformant, not just array-shaped) and a
+// deprecated `hits` alias carrying the identical content under its pre-0.3
+// name and field spelling, per SPEC §7.2's field mapping table.
+func (h *Handler) searchCitationsAndData(
+	primary feed402CitationSource,
+	hits []feed402Hit,
+	rawData json.RawMessage,
+) ([]feed402CitationSource, json.RawMessage) {
+	if len(hits) == 0 {
+		return nil, nil
+	}
+
+	allIdx := make([]int, len(hits))
+	for i := range allIdx {
+		allIdx[i] = i
+	}
+	primary.ResultIndex = allIdx
+	citations := make([]feed402CitationSource, 0, len(hits)+1)
+	citations = append(citations, primary)
+	for i, hit := range hits {
+		citations = append(citations, feed402CitationSource{
+			Type:         "source",
+			SourceID:     hit.SourceID,
+			Provider:     primary.Provider,
+			RetrievedAt:  primary.RetrievedAt,
+			License:      primary.License,
+			CanonicalURL: hit.CanonicalURL,
+			ResultIndex:  []int{i},
+		})
+	}
+
+	augmented, err := augmentDataWithRowsAndHits(rawData, hits)
+	if err != nil {
+		// Upstream body wasn't a JSON object we can safely augment (rare —
+		// none of the adapter-backed upstreams emit a bare array or scalar
+		// today). Fall back to the pre-array single-citation shape rather
+		// than publish a citation array SPEC §3.3 can't validate against an
+		// un-augmented `data`.
+		slog.Warn("feed402: could not augment data with rows/hits; falling back to single citation", "error", err)
+		return nil, nil
+	}
+	return citations, augmented
+}
+
+// augmentDataWithRowsAndHits adds `rows` (the SPEC §3.3 resultList marker)
+// and `hits` (the deprecated pre-0.3 alias, SPEC §7.2) to a JSON object
+// body, preserving every existing key. Errors when rawData isn't a JSON
+// object — the two new keys would have nowhere sensible to attach.
+func augmentDataWithRowsAndHits(rawData json.RawMessage, hits []feed402Hit) (json.RawMessage, error) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(rawData, &obj); err != nil {
+		return nil, fmt.Errorf("upstream body is not a JSON object: %w", err)
+	}
+	hitsJSON, err := json.Marshal(hits)
+	if err != nil {
+		return nil, fmt.Errorf("marshal hits: %w", err)
+	}
+	obj["rows"] = hitsJSON
+	obj["hits"] = hitsJSON
+	return json.Marshal(obj)
+}
+
 type feed402Receipt struct {
 	Tier     string  `json:"tier"`
 	PriceUSD float64 `json:"price_usd"`
@@ -162,16 +333,20 @@ type feed402Receipt struct {
 }
 
 type feed402Envelope struct {
-	Data     json.RawMessage       `json:"data"`
-	Citation feed402CitationSource `json:"citation"`
-	// Hits is an optional v0.2-additive field: on search-tier responses
-	// the gateway extracts per-record re-verification handles
-	// (source_id + canonical_url + rank) so agents can re-fetch or
-	// re-cite individual results. Absent when the route isn't a search
-	// or the upstream body shape isn't recognized. Spec §2.3 unknown-
-	// field rule guarantees v0.1 agents ignore it safely.
-	Hits    []feed402Hit   `json:"hits,omitempty"`
-	Receipt feed402Receipt `json:"receipt"`
+	Data json.RawMessage `json:"data"`
+	// Citation (SPEC §3, v0.3 BREAKING) — always an array, length >= 1 on
+	// success. A single-record or insight response carries exactly one
+	// entry: the provider-level citation from buildCitationFor(). A
+	// search-tier response whose route has an adapter-derived hit list
+	// carries the provider-level query citation FIRST (grounding every
+	// result via ResultIndex), followed by one citation per hit (grounding
+	// its own result). See DEPRECATIONS.md.
+	Citation []feed402CitationSource `json:"citation"`
+	// CitationLegacy (SPEC §7.1, deprecated, sunset feed402/0.5) — a copy of
+	// Citation[0] for consumers still reading the pre-0.3 singular shape.
+	// Advisory only: a 0.3 consumer MUST NOT require it.
+	CitationLegacy *feed402CitationSource `json:"citation_legacy,omitempty"`
+	Receipt        feed402Receipt         `json:"receipt"`
 }
 
 // ---------- Manifest builder ----------
@@ -228,16 +403,23 @@ func (h *Handler) buildFeed402Manifest() feed402Manifest {
 		}
 	}
 
+	operations := make([]feed402Operation, 0, len(h.cfg.Routes))
+	for i := range h.cfg.Routes {
+		operations = append(operations, h.buildOperationFor(&h.cfg.Routes[i]))
+	}
+
 	return feed402Manifest{
 		Name:           f.Name,
 		Version:        f.Version,
 		Spec:           f.Spec,
 		Chain:          string(h.cfg.Network),
 		Wallet:         h.cfg.RecipientAddress,
+		Capabilities:   h.buildManifestCapabilities(),
 		Tiers:          tiers,
 		CitationPolicy: f.CitationPolicy,
 		CitationTypes:  []string{"source"},
 		Contact:        f.Contact,
+		Operations:     operations,
 		Routes:         routes,
 		TierRoutes:     tierRoutes,
 	}
@@ -284,7 +466,7 @@ func (h *Handler) wrapFeed402Envelope(
 		dataField = s
 	}
 
-	citation := h.buildCitationFor(route, req)
+	primary := h.buildCitationFor(route, req)
 	price := parsePriceUSD(route.Price)
 
 	tx := txHash
@@ -297,13 +479,24 @@ func (h *Handler) wrapFeed402Envelope(
 
 	// Extract per-hit provenance if the route has a registered adapter
 	// implementing both Normalizer and CitationProvider (search-tier routes
-	// on recognized upstreams).
+	// on recognized upstreams), then fold it into a SPEC §3.3-conformant
+	// citation array plus an augmented `data` carrying the resultList marker
+	// (`rows`) and the deprecated `hits` alias, side by side.
 	hits := h.hitsForRoute(route.ID, upstreamBody)
+	citations, augmentedData := h.searchCitationsAndData(primary, hits, dataField)
+	if citations == nil {
+		// No hits, or the upstream body couldn't be safely augmented: the
+		// single-record shape from before x402-research-gateway#1, now as a
+		// one-element array.
+		citations = []feed402CitationSource{primary}
+	} else {
+		dataField = augmentedData
+	}
 
 	env := feed402Envelope{
-		Data:     dataField,
-		Citation: citation,
-		Hits:     hits,
+		Data:           dataField,
+		Citation:       citations,
+		CitationLegacy: &citations[0],
 		Receipt: feed402Receipt{
 			Tier:     route.Feed402Tier,
 			PriceUSD: price,

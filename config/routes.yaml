@@ -54,6 +54,17 @@ feed402:
     providerRouteIds: []
     maxConcurrency: 4
     timeoutSeconds: 10
+  # Federated multi-provider search (x402-research-gateway#4). POST is the
+  # paid fan-out; GET on the same path is free and returns the cost
+  # estimate, so an agent can price a call and set a cap before paying.
+  federated:
+    enabled: true
+    path: /research/federated
+    price: "0.005"
+    description: "Federated search across every provider declaring a capability, with per-provider provenance preserved"
+    providerRouteIds: []
+    maxConcurrency: 4
+    timeoutSeconds: 10
 
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---

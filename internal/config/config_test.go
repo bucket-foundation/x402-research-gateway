@@ -41,6 +41,10 @@ func TestLoadFromFile_ResolveBlock(t *testing.T) {
 		if !cit.Enabled || cit.Path != "/research/citations" || cit.MaxConcurrency != 4 || cit.TimeoutSeconds != 10 {
 			t.Errorf("%s: citations config = %+v", path, cit)
 		}
+		fed := c.Feed402.Federated
+		if !fed.Enabled || fed.Path != "/research/federated" || fed.MaxConcurrency != 4 || fed.TimeoutSeconds != 10 {
+			t.Errorf("%s: federated config = %+v", path, fed)
+		}
 		byID := map[string]bool{}
 		for i := range c.Routes {
 			byID[c.Routes[i].ID] = true

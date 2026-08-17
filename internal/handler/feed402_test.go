@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/provider"
 )
 
 // newTestHandler returns a Handler with only the fields the feed402 layer
@@ -15,7 +16,7 @@ import (
 // facilitator client + router), because the envelope / manifest helpers
 // should be independently testable.
 func newTestHandler(cfg *config.GatewayConfig) *Handler {
-	return &Handler{cfg: cfg, hitParsers: defaultHitParsers()}
+	return &Handler{cfg: cfg, providers: provider.DefaultRegistry()}
 }
 
 func testCfg() *config.GatewayConfig {
@@ -121,6 +122,56 @@ func TestBuildFeed402Manifest_ShapeAndCheapestPerTier(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("citation_types must include 'source'; got %v", m.CitationTypes)
+	}
+}
+
+func TestBuildFeed402Manifest_CapabilitiesFromAdapterRegistry(t *testing.T) {
+	h := newTestHandler(testCfg())
+	m := h.buildFeed402Manifest()
+
+	var search, fetch *feed402RouteEntry
+	for i := range m.Routes {
+		switch m.Routes[i].ID {
+		case "pubmed-search":
+			search = &m.Routes[i]
+		case "pubmed-fetch":
+			fetch = &m.Routes[i]
+		}
+	}
+	if search == nil || fetch == nil {
+		t.Fatal("expected pubmed-search and pubmed-fetch routes in manifest")
+	}
+
+	foundSearch, foundPagination := false, false
+	for _, c := range search.Capabilities {
+		if c == "search" {
+			foundSearch = true
+		}
+		if c == "pagination" {
+			foundPagination = true
+		}
+	}
+	if !foundSearch || !foundPagination {
+		t.Errorf("pubmed-search capabilities should include search+pagination, got %v", search.Capabilities)
+	}
+	for _, c := range fetch.Capabilities {
+		if c == "search" {
+			t.Error("pubmed-fetch (raw-tier, Fetcher-only) must not report search")
+		}
+	}
+
+	// A route with no registered adapter omits Capabilities entirely rather
+	// than reporting an empty array.
+	cfg := testCfg()
+	cfg.Routes = append(cfg.Routes, config.RouteConfig{
+		ID: "no-adapter-route", Path: "/x", Method: "GET", Price: "0.001", Feed402Tier: "query",
+	})
+	h2 := newTestHandler(cfg)
+	m2 := h2.buildFeed402Manifest()
+	for _, r := range m2.Routes {
+		if r.ID == "no-adapter-route" && r.Capabilities != nil {
+			t.Errorf("route with no adapter should have nil Capabilities, got %v", r.Capabilities)
+		}
 	}
 }
 

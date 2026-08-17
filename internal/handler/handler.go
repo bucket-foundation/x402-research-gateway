@@ -112,6 +112,41 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		routeIndex[insKey] = &cfg.Routes[len(cfg.Routes)-1]
 	}
 
+	// Identity-resolution synthetic route (x402-research-gateway#5) —
+	// registered the same way as the insight route so payment plumbing is
+	// shared rather than duplicated.
+	if cfg.Feed402.Enabled && cfg.Feed402.Resolve.Enabled {
+		res := cfg.Feed402.Resolve
+		cfg.Routes = append(cfg.Routes, config.RouteConfig{
+			ID:          "feed402-resolve",
+			Path:        res.Path,
+			Method:      "POST",
+			Description: res.Description,
+			MimeType:    "application/json",
+			Price:       res.Price,
+			Feed402Tier: "query",
+			Citation: config.RouteCitation{
+				SourcePrefix: "resolve",
+				License:      cfg.Feed402.CitationPolicy,
+			},
+		})
+		resKey := "POST " + res.Path
+		x402Routes[resKey] = x402http.RouteConfig{
+			Description: res.Description,
+			MimeType:    "application/json",
+			Accepts: x402http.PaymentOptions{
+				{
+					Scheme:            "exact",
+					Network:           network,
+					PayTo:             cfg.RecipientAddress,
+					Price:             res.Price,
+					MaxTimeoutSeconds: 60,
+				},
+			},
+		}
+		routeIndex[resKey] = &cfg.Routes[len(cfg.Routes)-1]
+	}
+
 	x402srv := x402http.NewServer(
 		x402Routes,
 		x402.WithFacilitatorClient(facilitatorClient),
@@ -161,6 +196,10 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		slog.Info("Registering route", "method", r.Method, "path", r.Path, "price", r.Price)
 		if r.ID == "feed402-insight" {
 			h.router.Post(r.Path, h.handleInsight)
+			continue
+		}
+		if r.ID == "feed402-resolve" {
+			h.router.Post(r.Path, h.handleResolve)
 			continue
 		}
 		switch r.Method {

@@ -19,8 +19,10 @@ package provider
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/identity"
 )
 
 // Capability names an operation category, mirroring the feed402 SPEC §1.1
@@ -49,6 +51,12 @@ const (
 	CapSemanticSearch     Capability = "semantic_search"
 	CapFilters            Capability = "filters"
 	CapPagination         Capability = "pagination"
+	// CapIdentityResolution is an extension capability under feed402 SPEC
+	// §1.1's open-vocabulary rule: the spec's closed list has no name for
+	// resolving one work's identifiers across providers. An agent that does
+	// not know this string degrades it to "an operation I cannot drive,"
+	// which the spec requires and which costs it nothing.
+	CapIdentityResolution Capability = "identity_resolution"
 )
 
 // NormalizedRecord is one upstream result, decoupled from any particular
@@ -140,6 +148,48 @@ type VocabularyProvider interface {
 	LookupTerm(id string) (NormalizedRecord, bool)
 }
 
+// IdentityProvider extracts cross-provider identifiers and provider-asserted
+// relations from a record, feeding internal/identity's resolver
+// (x402-research-gateway#5).
+//
+// The split between the two methods is the evidence boundary the identity
+// model rests on. Identifiers reports what the provider says this record
+// *is*; AssertedRelations reports relations the provider itself published.
+// Neither method computes similarity: inference belongs to the resolver, so
+// a provider can never smuggle a guess in as a fact.
+//
+// Implementations must never panic and must return nil for a body shape
+// they do not recognize.
+type IdentityProvider interface {
+	// Identifiers returns every identifier the record carries, including
+	// the provider's own. Raw strings are preserved inside each
+	// identity.Identifier.
+	Identifiers(record NormalizedRecord) []identity.Identifier
+	// AssertedRelations returns relations the provider published, built
+	// with identity.ProviderAsserted evidence. `at` is the retrieval time
+	// stamped onto each relation. nodeID is the resolver's address for this
+	// record, so relations can be anchored without the adapter knowing the
+	// NodeID construction rule.
+	AssertedRelations(nodeID string, record NormalizedRecord, at time.Time) []identity.Relation
+}
+
+// Descriptor is the thin bibliographic surface the identity resolver uses
+// for similarity inference. Kept separate from NormalizedRecord because it
+// is only ever evidence: a provider that cannot supply it disables fuzzy
+// matching for its records rather than producing a weaker guess.
+type Descriptor struct {
+	Title   string
+	Authors []string
+	Year    int
+}
+
+// DescriptorProvider supplies the similarity surface above. Optional, and
+// independent of IdentityProvider: a provider can contribute exact
+// identifiers without ever contributing similarity evidence.
+type DescriptorProvider interface {
+	Descriptor(record NormalizedRecord) Descriptor
+}
+
 // SyncCapability is what a SyncProvider reports about bulk/incremental
 // access.
 type SyncCapability struct {
@@ -171,6 +221,8 @@ type Adapter struct {
 	AssetProvider      AssetProvider
 	VocabularyProvider VocabularyProvider
 	SyncProvider       SyncProvider
+	IdentityProvider   IdentityProvider
+	DescriptorProvider DescriptorProvider
 }
 
 // Capabilities reports the capability vocabulary this adapter implements,
@@ -192,6 +244,9 @@ func (a *Adapter) Capabilities() []Capability {
 	}
 	if a.VocabularyProvider != nil {
 		caps = append(caps, CapVocabulary)
+	}
+	if a.IdentityProvider != nil {
+		caps = append(caps, CapIdentityResolution)
 	}
 	if a.SyncProvider != nil {
 		sc := a.SyncProvider.SyncCapability()

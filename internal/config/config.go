@@ -30,15 +30,14 @@ func expandEnvWithDefaults(s string) string {
 	return os.ExpandEnv(s)
 }
 
-
 // GatewayConfig is the top-level gateway configuration.
 type GatewayConfig struct {
-	Port             int            `yaml:"port"`
-	RecipientAddress string         `yaml:"recipientAddress"`
-	Network          string         `yaml:"network"`
-	FacilitatorURL   string         `yaml:"facilitatorUrl"`
-	DefaultPrice     string         `yaml:"defaultPrice"`
-	Routes           []RouteConfig  `yaml:"routes"`
+	Port             int           `yaml:"port"`
+	RecipientAddress string        `yaml:"recipientAddress"`
+	Network          string        `yaml:"network"`
+	FacilitatorURL   string        `yaml:"facilitatorUrl"`
+	DefaultPrice     string        `yaml:"defaultPrice"`
+	Routes           []RouteConfig `yaml:"routes"`
 	// Feed402 is the top-level feed402-protocol metadata. When present and
 	// `Enabled` is true, the gateway serves /.well-known/feed402.json and
 	// wraps all paid responses in the feed402 envelope (data + citation +
@@ -60,14 +59,45 @@ type Feed402Config struct {
 	// context, calls an LLM summarizer, and wraps the result in the §3
 	// envelope with tier="insight".
 	Insight InsightConfig `yaml:"insight"`
+	// Resolve (optional) turns on the identity-resolution endpoint
+	// (x402-research-gateway#5). When enabled the gateway registers a POST
+	// handler at Resolve.Path that accepts {identifier}, fans out to every
+	// route whose adapter implements IdentityProvider, and returns a
+	// relation graph in the SPEC §3 envelope with one citation per
+	// contributing provider.
+	Resolve ResolveConfig `yaml:"resolve"`
+}
+
+// ResolveConfig configures the identity-resolution endpoint.
+type ResolveConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/resolve"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts fan-out to these route ids. Empty means
+	// every route whose adapter implements IdentityProvider, which is the
+	// useful default; naming ids is how an operator excludes a slow or
+	// rate-limited upstream from the resolve path.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// MaxConcurrency bounds simultaneous upstream calls during fan-out.
+	// Default 4.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+	// TimeoutSeconds bounds each individual provider call. A provider that
+	// exceeds it is reported as an explicit failure, never as zero
+	// results. Default 10.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
+	// SimilarityThreshold is the minimum score at which a title/author
+	// match is reported as possible_same_work. Zero uses the resolver
+	// default.
+	SimilarityThreshold float64 `yaml:"similarityThreshold"`
 }
 
 // InsightConfig configures the gateway's insight tier endpoint.
 type InsightConfig struct {
-	Enabled          bool   `yaml:"enabled"`
-	Path             string `yaml:"path"`             // e.g. "/research/insight"
-	Price            string `yaml:"price"`            // feed402 SPEC: insight is cheapest
-	Description      string `yaml:"description"`
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"`  // e.g. "/research/insight"
+	Price       string `yaml:"price"` // feed402 SPEC: insight is cheapest
+	Description string `yaml:"description"`
 	// RetrievalRouteID picks which existing search route the insight
 	// handler fans out to for context. Must match a route.ID in Routes.
 	RetrievalRouteID string `yaml:"retrievalRouteId"`
@@ -240,6 +270,23 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Insight.MaxContextChars == 0 {
 				cfg.Feed402.Insight.MaxContextChars = 4000
+			}
+		}
+		if cfg.Feed402.Resolve.Enabled {
+			if cfg.Feed402.Resolve.Path == "" {
+				cfg.Feed402.Resolve.Path = "/research/resolve"
+			}
+			if cfg.Feed402.Resolve.Price == "" {
+				cfg.Feed402.Resolve.Price = "0.005"
+			}
+			if cfg.Feed402.Resolve.Description == "" {
+				cfg.Feed402.Resolve.Description = "Cross-provider scholarly identity resolution"
+			}
+			if cfg.Feed402.Resolve.MaxConcurrency == 0 {
+				cfg.Feed402.Resolve.MaxConcurrency = 4
+			}
+			if cfg.Feed402.Resolve.TimeoutSeconds == 0 {
+				cfg.Feed402.Resolve.TimeoutSeconds = 10
 			}
 		}
 	}

@@ -14,7 +14,7 @@ citation envelope (data + citation array + receipt), including a feed402
 `insight` tier. See [`DEPRECATIONS.md`](DEPRECATIONS.md) for the 0.2 → 0.3
 field-by-field migration and deprecation window.
 
-## Endpoints (7 + insight)
+## Endpoints
 
 | Path | Source | Tier |
 |------|--------|------|
@@ -26,6 +26,7 @@ field-by-field migration and deprecation window.
 | `/research/pubchem/compound` | PubChem chemical compound data | raw |
 | `/research/kruse/search` | Jack Kruse corpus (biophysics) | query |
 | `/research/insight` | LLM-summarized insight over PubMed retrieval | insight |
+| `/research/resolve` | Cross-provider scholarly identity resolution | query |
 
 Routes, prices, and citation policies are declared in
 [`config/routes.yaml`](config/routes.yaml).
@@ -36,7 +37,7 @@ Provider semantics are separated from HTTP routing, x402 payment, and
 feed402 enveloping behind small composable Go interfaces in
 [`internal/provider`](internal/provider) (`Searcher`, `Fetcher`,
 `Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
-`SyncProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+`SyncProvider`, `IdentityProvider`, `DescriptorProvider`). A route needs no adapter at all: `config/routes.yaml`'s
 declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
 remain the cheapest way to add a simple REST upstream, proxied unchanged by
 [`internal/handler/proxy.go`](internal/handler/proxy.go).

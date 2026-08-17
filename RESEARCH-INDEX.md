@@ -23,7 +23,8 @@
 
 | Lifecycle status | Sources |
 |---|---|
-| `researched` | 92 |
+| `researched` | 90 |
+| `implemented` | 2 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -183,7 +184,7 @@
 
 | Name | Status | Type | Domain coverage | Corpus size | Base URL / endpoint | Auth | Rate limit (free) | License | Redistribution | Tier fit | source_prefix | Canonical URL template | Last verified | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **CrossRef** | `researched` | `scholarly_metadata` | DOI metadata, refs, funders | ~160M works | `https://api.crossref.org/works?query=...` | none (email polite = "mailto=...") | 50/s polite pool | CC0 | `allowed` | raw (`/works/{doi}`), query | `crossref` | `https://doi.org/{doi}` | — | Polite pool header `User-Agent: ...mailto:gian@agfarms.dev`. |
+| **CrossRef** | `implemented` | `scholarly_metadata` | DOI metadata, refs, funders | ~160M works | `https://api.crossref.org/works?query=...` | none (email polite = "mailto=...") | 50/s polite pool | CC0 | `allowed` | raw (`/works/{doi}`), query | `crossref` | `https://doi.org/{doi}` | — | Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly. Verified 2026-08-17. |
 | **DataCite** | `researched` | `scholarly_metadata` | DOI metadata for datasets | ~65M | `https://api.datacite.org/dois` | none | polite | CC0 | `allowed` | raw, query | `datacite` | `https://doi.org/{doi}` | — | Dataset/software DOIs (complement to CrossRef). |
 | **OpenAlex** | `production` | `scholarly_metadata` | Unified research graph (works, authors, venues, institutions, concepts) | ~260M works | `https://api.openalex.org/works?search=...` | email-header polite | 100k/day polite | CC0 | `allowed` | raw, query | `openalex` | `https://openalex.org/{id}` | — | Keep. MAG successor. Parser = `openalex-style`. |
 | **BASE (Bielefeld)** | `researched` | `scholarly_metadata` | OA discovery | ~400M | `https://api.base-search.net/cgi-bin/BaseHttpSearchInterface.fcgi` | ip-whitelist (free on request) | contract | meta-varies | `unknown` | query | `base` | — | — | Less friendly than CORE; use only if CORE gaps. |
@@ -197,11 +198,11 @@
 | **Wikipedia REST** | `researched` | `full_text_repository` | Encyclopedia articles, summaries, refs | ~60M articles all langs | `https://en.wikipedia.org/api/rest_v1/page/summary/{title}` | polite user-agent required | 200/s w/ UA | CC-BY-SA | `allowed` | raw, query | `wikipedia` | `https://en.wikipedia.org/wiki/{title}` | — | Must send a descriptive `User-Agent`. |
 | **DOAJ** | `researched` | `scholarly_metadata` | Directory of Open Access Journals | ~20k journals | `https://doaj.org/api/` | none | polite | CC-BY | `allowed` | query | `doaj` | `https://doaj.org/article/{id}` | — | Journal + article. |
 | **DOAB** | `researched` | `scholarly_metadata` | Directory of OA Books | ~80k books | `https://directory.doabooks.org/rest/` | none | polite | CC-BY | `allowed` | query | `doab` | `https://directory.doabooks.org/handle/{handle}` | — | OA monographs. |
-| **OpenCitations** | `researched` | `citation_graph` | Citation graph | ~2B citations | `https://opencitations.net/index/coci/api/v1/` | none | polite | CC0 | `allowed` | raw, query | `opencitations` | `https://opencitations.net/index/coci/api/v1/references/{doi}` | — | Citation relations as data. |
+| **OpenCitations** | `implemented` | `citation_graph` | Citation graph | ~2B citations | `https://api.opencitations.net/index/v2/` | optional access token in the Authorization header | 180 req/min per IP | CC0 | `allowed` | raw, query | `opencitations` | `https://api.opencitations.net/index/v2/references/{doi}` | — | Citation relations as data. Index v2 at api.opencitations.net supersedes the COCI v1 path; identifiers take a scheme prefix (doi:, pmid:, omid:). Edge fields: oci, citing, cited, creation, timespan, journal_sc, author_sc. Verified 2026-08-17. |
 | **Scite.ai** | `researched` | `citation_graph` | Smart-citation classification (supporting/contrasting) | ~1.2B citations | `https://api.scite.ai/` | api-key, paid | contract | proprietary | `unknown` | ⚠️ skip default | — | — | — | Paid — defer. |
 | **Connected Papers** | `excluded` | `citation_graph` | Citation-graph visualization | — | — | — | — | — | `denied` | — | — | — | — | Skip — HTML only, ToS forbids scraping. |
 | **Altmetric** | `researched` | `scholarly_metadata` | Social attention scoring | — | `https://api.altmetric.com/v1/` | api-key | 1/s free | proprietary | `unknown` | query | `altmetric` | `https://www.altmetric.com/details/{id}` | — | Useful adjunct for insight tier. Endpoints/format: (free tier), commercial above |
-| **Semantic Scholar (S2) API** | `production` | `scholarly_metadata` | Research graph + TLDRs + embeddings | ~220M papers | `https://api.semanticscholar.org/graph/v1/` | api-key optional | 1/s anon, 100/s keyed | CC-BY-NC (TLDRs), ODC-BY (meta) | `allowed` | raw, query | `s2` | `https://www.semanticscholar.org/paper/{id}` | — | Keep. TLDRs useful in insight tier. |
+| **Semantic Scholar (S2) API** | `production` | `scholarly_metadata` | Research graph + TLDRs + embeddings | ~220M papers | `https://api.semanticscholar.org/graph/v1/` | api-key optional | 1/s anon, 100/s keyed | CC-BY-NC (TLDRs), ODC-BY (meta) | `allowed` | raw, query | `s2` | `https://www.semanticscholar.org/paper/{id}` | — | Keep. TLDRs useful in insight tier. Citation endpoints /graph/v1/paper/{id}/references and /citations, verified 2026-08-17. |
 | **PatentsView legacy API** | `sunset` | `patent_database` | US patent data, retired API | ~8M US patents | — | api-key | — | US-gov public domain | `allowed` | — | `patentsview` | — | — | Retired. USPTO migrated to the Open Data Portal on 2026-03-20. Retained as the predecessor entry so historical references still resolve. |
 | **USPTO Open Data Portal** | `researched` | `patent_database` | US patents and applications | US patents and applications | `https://data.uspto.gov/` | api-key | per-key | US-gov public domain | `allowed` | raw, query | `uspto` | `https://patents.google.com/patent/{id}` | — | Successor to the retired PatentsView API since 2026-03-20. ODP API key required; further account requirements phase in during June and August 2026. Verification is deployment-blocked until a key is provisioned. |
 

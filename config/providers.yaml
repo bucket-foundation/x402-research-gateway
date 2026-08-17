@@ -1716,7 +1716,7 @@ providers:
   - provider_id: "crossref"
     name: "CrossRef"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
@@ -1732,7 +1732,9 @@ providers:
     rights:
       metadata_license: "CC0"
       redistribution: allowed
-    notes: "Polite pool header `User-Agent: ...mailto:gian@agfarms.dev`."
+    route_ids:
+      - crossref-references
+    notes: "Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly. Verified 2026-08-17."
 
   - provider_id: "datacite"
     name: "DataCite"
@@ -1776,6 +1778,8 @@ providers:
       redistribution: allowed
     route_ids:
       - openalex-works
+      - openalex-references
+      - openalex-cited-by
     historical_predecessor: "microsoft-academic-graph"
     notes: "Keep. MAG successor. Parser = `openalex-style`."
 
@@ -2011,23 +2015,26 @@ providers:
   - provider_id: "opencitations"
     name: "OpenCitations"
     provider_type: citation_graph
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
     coverage: "Citation graph"
     corpus_size: "~2B citations"
-    base_url: "https://opencitations.net/index/coci/api/v1/"
+    base_url: "https://api.opencitations.net/index/v2/"
     source_prefix: "opencitations"
-    canonical_url: "https://opencitations.net/index/coci/api/v1/references/{doi}"
+    canonical_url: "https://api.opencitations.net/index/v2/references/{doi}"
     tier_fit: "raw, query"
-    auth: "none"
-    rate_limit: "polite"
+    auth: "optional access token in the Authorization header"
+    rate_limit: "180 req/min per IP"
     license: "CC0"
     rights:
       metadata_license: "CC0"
       redistribution: allowed
-    notes: "Citation relations as data."
+    route_ids:
+      - opencitations-references
+      - opencitations-cited-by
+    notes: "Citation relations as data. Index v2 at api.opencitations.net supersedes the COCI v1 path; identifiers take a scheme prefix (doi:, pmid:, omid:). Edge fields: oci, citing, cited, creation, timespan, journal_sc, author_sc. Verified 2026-08-17."
 
   - provider_id: "scite-ai"
     name: "Scite.ai"
@@ -2104,7 +2111,9 @@ providers:
       redistribution: allowed
     route_ids:
       - semantic-scholar-search
-    notes: "Keep. TLDRs useful in insight tier."
+      - semantic-scholar-references
+      - semantic-scholar-cited-by
+    notes: "Keep. TLDRs useful in insight tier. Citation endpoints /graph/v1/paper/{id}/references and /citations, verified 2026-08-17."
 
   - provider_id: "sci-hub"
     name: "Sci-Hub"

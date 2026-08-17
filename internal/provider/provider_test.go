@@ -115,6 +115,9 @@ func TestGenericCitationProvider_EmptyRecordsReturnsNil(t *testing.T) {
 	}
 }
 
+// The seven adapters migrated in x402-research-gateway#2 must stay
+// registered as later waves add providers. New adapters extend the
+// registry; they never displace one.
 func TestDefaultRegistry_CoversAllSixMigratedProviders(t *testing.T) {
 	reg := DefaultRegistry()
 	want := []string{
@@ -126,8 +129,34 @@ func TestDefaultRegistry_CoversAllSixMigratedProviders(t *testing.T) {
 			t.Errorf("registry missing adapter for %q", id)
 		}
 	}
-	if len(reg) != len(want) {
-		t.Errorf("registry has %d entries, want %d", len(reg), len(want))
+	if len(reg) < len(want) {
+		t.Errorf("registry shrank to %d entries, below the %d migrated adapters", len(reg), len(want))
+	}
+}
+
+// The citation-graph adapters from x402-research-gateway#6, one per
+// provider per direction.
+func TestDefaultRegistry_CoversCitationGraphAdapters(t *testing.T) {
+	reg := DefaultRegistry()
+	for _, id := range []string{
+		"openalex-references", "openalex-cited-by",
+		"semantic-scholar-references", "semantic-scholar-cited-by",
+		"opencitations-references", "opencitations-cited-by",
+		"crossref-references",
+	} {
+		a, ok := reg[id]
+		if !ok {
+			t.Fatalf("registry missing citation adapter for %q", id)
+		}
+		if a.CitationGraphProvider == nil {
+			t.Errorf("%s has no CitationGraphProvider", id)
+		}
+	}
+	// Crossref serves outbound references only. No cited-by adapter must
+	// exist for it, so a cited-by query reports the direction unsupported
+	// rather than reporting Crossref as a provider that found nothing.
+	if _, ok := reg["crossref-cited-by"]; ok {
+		t.Error("Crossref has no cited-by endpoint and must not be registered for that direction")
 	}
 }
 

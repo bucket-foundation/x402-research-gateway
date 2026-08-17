@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
 )
@@ -190,6 +191,33 @@ type DescriptorProvider interface {
 	Descriptor(record NormalizedRecord) Descriptor
 }
 
+// CitationGraphProvider serves one direction of the citation graph for one
+// upstream (x402-research-gateway#6).
+//
+// One adapter serves one direction. A provider that offers both references
+// and cited-by gets two adapters, because the two are different upstream
+// calls with different response shapes, and because a provider that offers
+// only one must be able to say so rather than silently returning nothing
+// for the other.
+type CitationGraphProvider interface {
+	// Direction is the traversal this adapter serves.
+	Direction() citation.Direction
+	// EdgeQuery builds the query parameters the gateway sets on the
+	// synthetic upstream request for this identifier. ok=false means this
+	// provider cannot express a query for that identifier scheme, which is
+	// reported as unsupported_identifier and never as an empty result.
+	EdgeQuery(id identity.Identifier) (params map[string]string, ok bool)
+	// Edges parses an upstream body into normalized edges. `query` is the
+	// identifier the traversal started from, needed because most providers
+	// return only the far end of each edge. Must never panic; an
+	// unrecognized body is nil edges.
+	Edges(query identity.Identifier, body []byte, at time.Time) []citation.Edge
+	// EdgePagination reports how this provider pages its edge list and, for
+	// a given body, whether more edges exist beyond it. The cursor is
+	// opaque and provider-defined.
+	EdgePagination(body []byte) (model string, truncated bool, nextCursor string)
+}
+
 // SyncCapability is what a SyncProvider reports about bulk/incremental
 // access.
 type SyncCapability struct {
@@ -223,6 +251,8 @@ type Adapter struct {
 	SyncProvider       SyncProvider
 	IdentityProvider   IdentityProvider
 	DescriptorProvider DescriptorProvider
+
+	CitationGraphProvider CitationGraphProvider
 }
 
 // Capabilities reports the capability vocabulary this adapter implements,
@@ -247,6 +277,14 @@ func (a *Adapter) Capabilities() []Capability {
 	}
 	if a.IdentityProvider != nil {
 		caps = append(caps, CapIdentityResolution)
+	}
+	if a.CitationGraphProvider != nil {
+		switch a.CitationGraphProvider.Direction() {
+		case citation.DirectionReferences:
+			caps = append(caps, CapReferences)
+		case citation.DirectionCitedBy:
+			caps = append(caps, CapCitedBy)
+		}
 	}
 	if a.SyncProvider != nil {
 		sc := a.SyncProvider.SyncCapability()

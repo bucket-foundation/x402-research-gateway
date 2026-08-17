@@ -1,8 +1,9 @@
 package provider
 
-// DefaultRegistry returns the adapters for the six providers migrated in
-// x402-research-gateway#2: PubMed (search and fetch), Semantic Scholar,
-// OpenAlex, ClinicalTrials.gov, PubChem, and the Kruse search service.
+// DefaultRegistry returns every registered adapter: the six providers
+// migrated in x402-research-gateway#2 (PubMed search and fetch, Semantic
+// Scholar, OpenAlex, ClinicalTrials.gov, PubChem, Kruse) plus the
+// citation-graph adapters added in x402-research-gateway#6.
 //
 // A config.RouteConfig.ID with no entry here is served entirely by the
 // declarative config-driven proxy path (internal/handler/proxy.go), which
@@ -16,5 +17,16 @@ func DefaultRegistry() Registry {
 		ClinicalTrialsSearchAdapter.ID:  ClinicalTrialsSearchAdapter,
 		KruseSearchAdapter.ID:           KruseSearchAdapter,
 		PubChemCompoundAdapter.ID:       PubChemCompoundAdapter,
+
+		// Citation-graph adapters (x402-research-gateway#6). One adapter
+		// per provider per direction, so a provider that serves only one
+		// direction reports the other as unsupported rather than empty.
+		OpenAlexReferencesAdapter.ID:        OpenAlexReferencesAdapter,
+		OpenAlexCitedByAdapter.ID:           OpenAlexCitedByAdapter,
+		SemanticScholarReferencesAdapter.ID: SemanticScholarReferencesAdapter,
+		SemanticScholarCitedByAdapter.ID:    SemanticScholarCitedByAdapter,
+		OpenCitationsReferencesAdapter.ID:   OpenCitationsReferencesAdapter,
+		OpenCitationsCitedByAdapter.ID:      OpenCitationsCitedByAdapter,
+		CrossrefReferencesAdapter.ID:        CrossrefReferencesAdapter,
 	}
 }

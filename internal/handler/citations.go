@@ -29,6 +29,7 @@ import (
 	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
+	"github.com/gianyrox/x402-research-gateway/internal/provider"
 )
 
 type citationFanResult struct {
@@ -220,6 +221,11 @@ func (h *Handler) citationsFromProvider(
 	}
 	cg := adapter.CitationGraphProvider
 
+	// Coverage is stated whatever the outcome, so a consumer reading
+	// "unsupported_identifier" still knows what it would have been asking.
+	if cr, ok := cg.(provider.CoverageReporter); ok {
+		report.Coverage = cr.Coverage()
+	}
 	if cg.Direction() != direction {
 		report.Outcome = citation.OutcomeUnsupportedDirection
 		return citationFanResult{report: report}

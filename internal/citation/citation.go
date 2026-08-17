@@ -122,7 +122,13 @@ type Edge struct {
 	// ProviderEdgeID is the provider's identifier for the edge itself when
 	// it has one, e.g. an OpenCitations OCI.
 	ProviderEdgeID string `json:"provider_edge_id,omitempty"`
-	RetrievedAt    string `json:"retrieved_at"`
+	// Annotations carry per-edge facts a provider publishes that this model
+	// has no typed field for, e.g. OpenCitations' timespan, journal_sc, and
+	// author_sc. Keys are the provider's own field names, values its own
+	// strings. Dropping them would discard published data the gateway has
+	// no better place for.
+	Annotations map[string]string `json:"annotations,omitempty"`
+	RetrievedAt string            `json:"retrieved_at"`
 }
 
 // ID addresses this edge inside a Result: provider plus both endpoint keys.
@@ -181,6 +187,9 @@ type ProviderReport struct {
 	// NextCursor is the opaque handle for the next page, when the provider
 	// supplied one.
 	NextCursor string `json:"next_cursor,omitempty"`
+	// Coverage states which collection answered and what it covers, so a
+	// consumer reading edge_count knows whose view it is looking at.
+	Coverage string `json:"coverage,omitempty"`
 }
 
 // Result is one citation-graph query's full answer.

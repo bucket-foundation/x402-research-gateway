@@ -21,6 +21,7 @@ var SectionTitles = map[string]string{
 	"1.8":  "Earth Sciences",
 	"1.9":  "Cross-cutting discovery APIs",
 	"1.10": "Vocabularies, ontologies, and semantic standards",
+	"1.11": "Research integrity, retraction, correction, and update sources",
 }
 
 // mdEscape keeps a cell from breaking the surrounding table. Pipes are the

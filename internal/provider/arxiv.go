@@ -341,6 +341,7 @@ var ArXivSearchAdapter = &Adapter{
 	AssetProvider:        arxivIdentity{},
 	RecordRightsProvider: arxivIdentity{},
 	SyncProvider:         arxivSync{},
+	IntegrityProvider:    arxivIdentity{},
 }
 
 // ArXivFetchAdapter backs route ID "arxiv-fetch": one arXiv identifier in,
@@ -356,4 +357,5 @@ var ArXivFetchAdapter = &Adapter{
 	AssetProvider:        arxivIdentity{},
 	RecordRightsProvider: arxivIdentity{},
 	SyncProvider:         arxivSync{},
+	IntegrityProvider:    arxivIdentity{},
 }

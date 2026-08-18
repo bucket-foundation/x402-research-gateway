@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -73,6 +74,10 @@ type federatedRequest struct {
 	Query      string  `json:"query"`
 	Capability string  `json:"capability"`
 	MaxCostUSD float64 `json:"max_cost_usd"`
+	// Limit caps the number of merged results returned, applied after
+	// provider fan-out and fusion. Zero (including an absent field) means
+	// unlimited, the pre-existing behavior.
+	Limit int `json:"limit,omitempty"`
 }
 
 func (h *Handler) parseFederatedRequest(r *http.Request) federatedRequest {
@@ -97,7 +102,28 @@ func (h *Handler) parseFederatedRequest(r *http.Request) federatedRequest {
 			req.MaxCostUSD = parsePriceUSD(v)
 		}
 	}
+	if req.Limit == 0 {
+		if v := q.Get("limit"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				req.Limit = n
+			}
+		}
+	}
 	return req
+}
+
+// validate returns the caller-facing error for a malformed request, empty
+// when the request is well-formed. Kept as its own method so the guard is
+// unit-testable without driving the full paid handler (which needs a real
+// x402 payment signature).
+func (req federatedRequest) validate() string {
+	if req.Query == "" {
+		return "federated search requires a non-empty `query` field"
+	}
+	if req.Limit < 0 {
+		return "`limit` must not be negative"
+	}
+	return ""
 }
 
 func firstNonEmptyStr(vals ...string) string {
@@ -148,10 +174,8 @@ func (h *Handler) handleFederated(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := h.parseFederatedRequest(r)
-	if req.Query == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "federated search requires a non-empty `query` field",
-		})
+	if errMsg := req.validate(); errMsg != "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": errMsg})
 		return
 	}
 	capability := provider.Capability(req.Capability)
@@ -180,6 +204,9 @@ func (h *Handler) handleFederated(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := federate.Merge(req.Query, req.Capability, results, reports, est, time.Now())
+	if req.Limit > 0 {
+		resp = resp.Truncate(req.Limit)
+	}
 	citations := h.federatedCitations(route, resp)
 	if txHash == "" {
 		txHash = "pending:" + shortHash(payer, route.Path, req.Query, req.Capability)
@@ -318,6 +345,12 @@ func (h *Handler) federatedFromProvider(ctx context.Context, routeID, query stri
 			res.Raw = rec.Raw
 			if adapter.IdentityProvider != nil {
 				res.Identifiers = adapter.IdentityProvider.Identifiers(rec)
+			}
+			if adapter.DescriptorProvider != nil {
+				desc := adapter.DescriptorProvider.Descriptor(rec)
+				res.Title = desc.Title
+				res.Authors = desc.Authors
+				res.Year = desc.Year
 			}
 		}
 		out = append(out, res)

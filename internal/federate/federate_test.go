@@ -238,3 +238,80 @@ func TestEstimate_EmptyProviderSet(t *testing.T) {
 		t.Errorf("provider lines must serialize as an empty array, got %s", out)
 	}
 }
+
+// truncateFixture builds a merged response with a duplicate candidate
+// spanning results 2 and 4 (0-based), so a limit of 3 must drop it while a
+// limit of 5 must keep it.
+func truncateFixture(t *testing.T) Response {
+	t.Helper()
+	doi := mustDOI(t, "10.7717/peerj.4375")
+	results := []Result{
+		{Provider: "openalex-works", SourceID: "openalex:W1", ProviderRank: 1},
+		{Provider: "openalex-works", SourceID: "openalex:W2", ProviderRank: 2},
+		{Provider: "openalex-works", SourceID: "openalex:W3", ProviderRank: 3, Identifiers: []identity.Identifier{doi}},
+		{Provider: "s2-search", SourceID: "s2:P1", ProviderRank: 1},
+		{Provider: "s2-search", SourceID: "s2:P2", ProviderRank: 2, Identifiers: []identity.Identifier{doi}},
+	}
+	return Merge("photosynthesis", "search", results, nil, CostEstimate{}, at)
+}
+
+func TestTruncate_KeepsOnlyTheFirstN(t *testing.T) {
+	resp := truncateFixture(t)
+	if len(resp.Results) != 5 {
+		t.Fatalf("fixture setup: got %d results, want 5", len(resp.Results))
+	}
+	got := resp.Truncate(3)
+	if len(got.Results) != 3 {
+		t.Fatalf("Truncate(3) kept %d results, want 3", len(got.Results))
+	}
+	for i, r := range got.Results {
+		if r.FusedRank != i+1 {
+			t.Errorf("result %d: FusedRank = %d, want the untouched pre-truncation rank %d", i, r.FusedRank, i+1)
+		}
+	}
+}
+
+func TestTruncate_DropsDuplicateCandidatesOutsideRange(t *testing.T) {
+	resp := truncateFixture(t)
+	if len(resp.DuplicateCandidates) != 1 {
+		t.Fatalf("fixture setup: got %d duplicate candidates, want 1", len(resp.DuplicateCandidates))
+	}
+	dupIdx := resp.DuplicateCandidates[0].Results
+	maxDupIdx := 0
+	for _, i := range dupIdx {
+		if i > maxDupIdx {
+			maxDupIdx = i
+		}
+	}
+
+	// A limit that excludes the higher-indexed member of the pair must drop
+	// the candidate rather than leave it pointing past the kept results.
+	truncated := resp.Truncate(maxDupIdx) // keeps indices [0, maxDupIdx), so the pair no longer fits
+	for _, dc := range truncated.DuplicateCandidates {
+		for _, i := range dc.Results {
+			if i >= len(truncated.Results) {
+				t.Fatalf("duplicate candidate %+v references index %d outside %d kept results",
+					dc, i, len(truncated.Results))
+			}
+		}
+	}
+	if len(truncated.DuplicateCandidates) != 0 {
+		t.Errorf("expected the duplicate candidate to be dropped, got %+v", truncated.DuplicateCandidates)
+	}
+
+	// A limit that keeps every member of the pair must keep the candidate.
+	full := resp.Truncate(len(resp.Results))
+	if len(full.DuplicateCandidates) != 1 {
+		t.Errorf("Truncate(len(results)) must be a no-op on duplicate candidates, got %+v", full.DuplicateCandidates)
+	}
+}
+
+func TestTruncate_ZeroOrOversizedIsNoOp(t *testing.T) {
+	resp := truncateFixture(t)
+	if got := resp.Truncate(0); len(got.Results) != len(resp.Results) {
+		t.Errorf("Truncate(0) must be unlimited behavior, got %d results", len(got.Results))
+	}
+	if got := resp.Truncate(100); len(got.Results) != len(resp.Results) {
+		t.Errorf("Truncate(n) for n beyond the result count must be a no-op, got %d results", len(got.Results))
+	}
+}

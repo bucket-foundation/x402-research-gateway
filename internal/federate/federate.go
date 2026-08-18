@@ -49,6 +49,14 @@ type Result struct {
 	// Identifiers are the cross-provider identifiers this record carries,
 	// used to surface duplicate candidates.
 	Identifiers []identity.Identifier `json:"identifiers,omitempty"`
+	// Title, Authors, and Year are the normalized bibliographic surface for
+	// this result, copied from the provider's Descriptor when the adapter
+	// implements DescriptorProvider. Omitted rather than guessed when the
+	// adapter carries no descriptor for this record: an absent field means
+	// the gateway has no claim to make, not that the work is untitled.
+	Title   string   `json:"title,omitempty"`
+	Authors []string `json:"authors,omitempty"`
+	Year    int      `json:"year,omitempty"`
 	// Raw is the provider's original bytes for this record.
 	Raw json.RawMessage `json:"raw,omitempty"`
 }
@@ -185,6 +193,39 @@ func Merge(query, capability string, results []Result, reports []ProviderReport,
 	}
 	resp.DuplicateCandidates = Duplicates(fused, at)
 	return resp
+}
+
+// Truncate keeps only the first n merged results, n > 0. It never runs on
+// the fusion or the provider fan-out: those already happened, and the
+// caller's limit only trims what gets returned. FusedRank on the kept
+// results is untouched, so a truncated response's ranks still read as
+// positions in the full merge, not a renumbered short list.
+//
+// DuplicateCandidates are filtered rather than reindexed: a candidate that
+// named a result outside the kept range is no longer evidence about
+// anything in resp.Results, so it is dropped instead of left dangling.
+func (resp Response) Truncate(n int) Response {
+	if n <= 0 || n >= len(resp.Results) {
+		return resp
+	}
+	out := resp
+	out.Results = resp.Results[:n]
+
+	var kept []DuplicateCandidate
+	for _, dc := range resp.DuplicateCandidates {
+		inRange := true
+		for _, idx := range dc.Results {
+			if idx >= n {
+				inRange = false
+				break
+			}
+		}
+		if inRange {
+			kept = append(kept, dc)
+		}
+	}
+	out.DuplicateCandidates = kept
+	return out
 }
 
 // fuse orders results by reciprocal rank fusion over each provider's own

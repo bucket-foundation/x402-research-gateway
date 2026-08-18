@@ -65,6 +65,7 @@ var normalizerContracts = []struct {
 	{"ror/single", RORNormalizer{}, rorSingleFixture, 1, false},
 	{"zbmath/search", ZbMATHNormalizer{}, zbmathSearchListFixture, 1, false},
 	{"zbmath/fetch", ZbMATHNormalizer{}, zbmathFetchFixture, 1, false},
+	{"zenodo/search", ZenodoNormalizer{}, zenodoSearchFixture, 1, false},
 }
 
 func TestNormalizerContracts(t *testing.T) {
@@ -107,7 +108,7 @@ func TestNormalizerContracts_CoverEveryRegisteredNormalizer(t *testing.T) {
 		"datacite/dois-list", "openalex/works", "semantic-scholar/search",
 		"europe-pmc/search", "dblp/publ-search", "dblp/author-search",
 		"dblp/record-xml", "orcid/record", "orcid/search", "unpaywall/doi",
-		"ror/search", "zbmath/search",
+		"ror/search", "zbmath/search", "zenodo/search",
 	}
 	for _, w := range want {
 		if !registered[w] {

@@ -29,6 +29,12 @@ type Concept struct {
 	// notation (a MeSH descriptor "D017209", a GO term IRI, an MSC code).
 	ID        string
 	PrefLabel string
+	// PrefLabelLanguage is the BCP-47 language tag the source itself
+	// published for PrefLabel (x402-research-gateway#21), where the
+	// source states one. Empty means the source did not publish a
+	// language, never "English": there is no field here that designates
+	// an English form as canonical.
+	PrefLabelLanguage string
 	// AltLabels are synonyms currently in use, distinct from
 	// HistoricalAliases, which are labels the concept was known by in a
 	// prior release and no longer carries as an active synonym.
@@ -81,6 +87,17 @@ type Concept struct {
 	// "skos-rdf", etc., so a caller knows how to parse it without guessing
 	// from the provider ID.
 	NativeFormat string
+
+	// Labels carries every language/script-tagged label this concept's
+	// source published beyond PrefLabel (x402-research-gateway#21): a
+	// multilingual vocabulary (AGROVOC, UNESCO Thesaurus, MeSH
+	// translations, Getty) publishes labels in many languages, and a
+	// response carrying only PrefLabel has discarded most of what the
+	// source stated. Kind is FormSynonym for a same-concept label in
+	// another language; PrefLabel itself is never duplicated here unless
+	// the source names a language/script for it this field can carry and
+	// PrefLabel cannot.
+	Labels []LocalizedForm
 }
 
 // ConceptMapping is one published cross-vocabulary correspondence, kept

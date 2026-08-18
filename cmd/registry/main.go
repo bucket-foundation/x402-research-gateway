@@ -6,6 +6,7 @@
 //	registry research-index -check    # fail if the generated doc is stale
 //	registry verify [-only id,id]     # cheap liveness/drift check
 //	registry coverage                 # lifecycle summary
+//	registry health                   # last-recorded health, no network calls
 package main
 
 import (
@@ -44,6 +45,8 @@ func main() {
 		err = cmdVerify(os.Args[2:])
 	case "coverage":
 		err = cmdCoverage(os.Args[2:])
+	case "health":
+		err = cmdHealth(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -67,6 +70,7 @@ commands:
   research-index   regenerate RESEARCH-INDEX.md from the registry
   verify           cheap liveness and drift check, records last_verified
   coverage         print the lifecycle summary
+  health           print the last-recorded health of every operational provider
 `)
 }
 
@@ -145,12 +149,63 @@ func cmdCoverage(args []string) error {
 	return nil
 }
 
+// cmdHealth reports what the registry currently holds, no network calls: it
+// reads the last recorded state from `registry verify`, so it is safe to run
+// as often as wanted (a status page, a pre-campaign check) without generating
+// upstream traffic of its own.
+func cmdHealth(args []string) error {
+	fs := flag.NewFlagSet("health", flag.ExitOnError)
+	regPath := fs.String("registry", defaultRegistry, "registry file")
+	_ = fs.Parse(args)
+
+	r, err := registry.Load(*regPath)
+	if err != nil {
+		return err
+	}
+
+	var staleCount, warnCount int
+	for _, p := range r.Operational() {
+		state := "healthy"
+		switch {
+		case p.Stale:
+			state = "STALE"
+			staleCount++
+		case len(p.Warnings) > 0:
+			state = "warn"
+			warnCount++
+		}
+		lastVerified := p.LastVerified
+		if lastVerified == "" {
+			lastVerified = "never"
+		}
+		fmt.Printf("%-8s %-24s last_verified=%-12s last_checked=%s\n",
+			state, p.ProviderID, lastVerified, orNever(p.LastChecked))
+		if p.Stale && p.StaleReason != "" {
+			fmt.Printf("           %s\n", p.StaleReason)
+		}
+		for _, w := range p.Warnings {
+			fmt.Printf("           warning: %s\n", w)
+		}
+	}
+	fmt.Printf("\n%d operational provider(s): %d stale, %d with warnings\n",
+		len(r.Operational()), staleCount, warnCount)
+	return nil
+}
+
+func orNever(s string) string {
+	if s == "" {
+		return "never"
+	}
+	return s
+}
+
 func cmdVerify(args []string) error {
 	fs := flag.NewFlagSet("verify", flag.ExitOnError)
 	regPath := fs.String("registry", defaultRegistry, "registry file")
 	only := fs.String("only", "", "comma-separated provider ids to check")
 	write := fs.Bool("write", false, "write last_verified back to the registry")
 	delay := fs.Duration("delay", time.Second, "pause between providers")
+	failOnStale := fs.Bool("fail-on-stale", false, "exit non-zero if any provider is flagged stale (for CI gating)")
 	_ = fs.Parse(args)
 
 	r, err := registry.Load(*regPath)
@@ -176,18 +231,25 @@ func cmdVerify(args []string) error {
 		return err
 	}
 
-	var stale int
+	var stale, warned int
 	for _, res := range results {
-		if res.OK {
+		switch {
+		case !res.OK:
+			stale++
+			p, _ := r.Get(res.ProviderID)
+			fmt.Printf("STALE %s: %s\n", res.ProviderID, p.StaleReason)
+		case len(res.Warnings) > 0:
+			warned++
+			fmt.Printf("WARN  %s:\n", res.ProviderID)
+			for _, w := range res.Warnings {
+				fmt.Printf("        %s: %s\n", w.Kind, w.Detail)
+			}
+		default:
 			fmt.Printf("ok    %s\n", res.ProviderID)
-			continue
 		}
-		stale++
-		p, _ := r.Get(res.ProviderID)
-		fmt.Printf("STALE %s: %s\n", res.ProviderID, p.StaleReason)
 	}
 
-	fmt.Printf("\nchecked %d provider(s), %d flagged stale\n", len(results), stale)
+	fmt.Printf("\nchecked %d provider(s), %d flagged stale, %d with warnings\n", len(results), stale, warned)
 	if *write {
 		// Verification flags entries; it never deletes them. Writing back
 		// records last_verified and any stale flags.
@@ -197,7 +259,12 @@ func cmdVerify(args []string) error {
 		fmt.Printf("recorded last_verified in %s\n", *regPath)
 	}
 
-	// A stale upstream is information, not a build failure. The exit code
-	// stays zero so a flaky upstream cannot break CI; `validate` is the gate.
+	// A stale upstream is information, not a build failure by default: the
+	// exit code stays zero so a flaky upstream cannot break CI, and
+	// `validate` remains the hard gate. -fail-on-stale opts a scheduled
+	// health-check job into treating drift as actionable.
+	if *failOnStale && stale > 0 {
+		return fmt.Errorf("%d provider(s) flagged stale", stale)
+	}
 	return nil
 }

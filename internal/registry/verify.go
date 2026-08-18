@@ -2,31 +2,72 @@ package registry
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 )
 
+// sunsetSignalHeaders are the HTTP headers a well-behaved API uses to
+// announce it is going away: Sunset (RFC 8594) and the draft-standard
+// Deprecation header several providers (GitHub, others) have converged on
+// ahead of formal standardization. Either one present is worth a human's
+// attention regardless of whether the response otherwise looks healthy.
+var sunsetSignalHeaders = []string{"Sunset", "Deprecation"}
+
+// sunsetKeywords are matched, case-insensitively, against documentation body
+// text as a second, weaker signal: many providers announce a migration in
+// prose (the PatentsView -> USPTO ODP migration this issue was filed after)
+// with no header at all.
+var sunsetKeywords = []string{
+	"has been discontinued", "is discontinued", "is deprecated",
+	"has been sunset", "will be sunset", "migrating to", "has migrated to",
+	"replaced by", "no longer supported", "no longer maintained",
+	"end of life", "end-of-life",
+}
+
 // VerifyResult is the outcome of checking one provider.
 type VerifyResult struct {
 	ProviderID string
 	Checks     []CheckResult
-	OK         bool
+	// OK means every check that could fail the provider passed. A provider
+	// can be OK and still carry Warnings (a sunset notice, a documentation
+	// change) that deserve a human's attention without flagging the entry
+	// stale.
+	OK       bool
+	Warnings []CheckResult
+	// newDocumentationHash is the content fingerprint observed this run, set
+	// whenever the documentation URL was fetched successfully. Unexported:
+	// it is Verify's own bookkeeping for persisting to the registry, not
+	// part of the result a caller reports.
+	newDocumentationHash string
 }
 
 // CheckResult is one liveness or drift check.
 type CheckResult struct {
-	Kind    string // documentation_url, base_url, terms_url
+	// Kind identifies the check: documentation_url, base_url, terms_url,
+	// documentation_drift, sunset_signal.
+	Kind    string
 	URL     string
 	Status  int
 	Err     string
 	Skipped string // why the check did not run
+	// Warning marks a check that surfaces information without failing the
+	// provider: a Sunset/Deprecation header, a documentation body that
+	// changed since the last check. These do not flip OK to false and do
+	// not block last_verified from being stamped.
+	Warning bool
+	// Detail carries the human-readable finding for a warning, e.g. the
+	// Sunset header value or "documentation body changed since 2026-07-01".
+	Detail string
 }
 
 func (c CheckResult) OK() bool {
-	if c.Skipped != "" {
+	if c.Skipped != "" || c.Warning {
 		return true
 	}
 	// Anything that answers is alive enough for a liveness check. A 401/403
@@ -58,8 +99,23 @@ func NewVerifier() *Verifier {
 	}
 }
 
+// probeResult is what one HTTP round trip yields, kept separate from
+// CheckResult so callers that want the headers or body (sunset detection,
+// documentation-drift hashing) do not have to re-request.
+type probeResult struct {
+	status  int
+	err     error
+	headers http.Header
+	// body is populated only by checks that ask for it (documentationBody),
+	// so the plain liveness probe stays a HEAD/ranged-GET and never pulls a
+	// full response over the wire.
+	body []byte
+}
+
 // check issues one HEAD, falling back to a ranged GET for servers that reject
-// HEAD. Nothing beyond the response head is read.
+// HEAD. Nothing beyond the response head is read. It also surfaces a Sunset
+// or Deprecation header as a warning: a provider can be perfectly reachable
+// today and still be telling every client it is going away.
 func (v *Verifier) check(ctx context.Context, kind, url string) CheckResult {
 	res := CheckResult{Kind: kind, URL: url}
 	if strings.TrimSpace(url) == "" {
@@ -76,34 +132,96 @@ func (v *Verifier) check(ctx context.Context, kind, url string) CheckResult {
 		return res
 	}
 
-	do := func(method string) (int, error) {
+	p, err := v.probe(ctx, url, false)
+	if err != nil {
+		res.Err = err.Error()
+		return res
+	}
+	res.Status = p.status
+	if sunset := sunsetHeaderValue(p.headers); sunset != "" {
+		res.Detail = sunset
+	}
+	return res
+}
+
+// probe performs the HEAD-then-ranged-GET liveness request, optionally
+// pulling the body (withBody) for checks that need to inspect content, e.g.
+// documentation-drift hashing or sunset-keyword scanning.
+func (v *Verifier) probe(ctx context.Context, url string, withBody bool) (probeResult, error) {
+	do := func(method string) (probeResult, error) {
 		req, err := http.NewRequestWithContext(ctx, method, url, nil)
 		if err != nil {
-			return 0, err
+			return probeResult{}, err
 		}
 		req.Header.Set("User-Agent", v.UserAgent)
-		if method == http.MethodGet {
+		if method == http.MethodGet && !withBody {
 			// Ask for the first bytes only; this is a liveness probe.
 			req.Header.Set("Range", "bytes=0-0")
 		}
 		resp, err := v.Client.Do(req)
 		if err != nil {
-			return 0, err
+			return probeResult{}, err
 		}
 		defer resp.Body.Close()
-		return resp.StatusCode, nil
+		out := probeResult{status: resp.StatusCode, headers: resp.Header}
+		if withBody {
+			// Cap what we read: this is a drift check on a documentation
+			// page, not a mirror. 2MiB comfortably covers a rendered docs
+			// page while bounding memory against a misbehaving server.
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+			if readErr != nil {
+				return out, readErr
+			}
+			out.body = body
+		}
+		return out, nil
 	}
 
-	status, err := do(http.MethodHead)
-	if err != nil || status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented {
-		status, err = do(http.MethodGet)
+	method := http.MethodHead
+	if withBody {
+		method = http.MethodGet
 	}
-	if err != nil {
-		res.Err = err.Error()
-		return res
+	res, err := do(method)
+	if err != nil || res.status == http.StatusMethodNotAllowed || res.status == http.StatusNotImplemented {
+		res, err = do(http.MethodGet)
 	}
-	res.Status = status
-	return res
+	return res, err
+}
+
+// sunsetHeaderValue returns the first sunset-signal header present, so a
+// caller can surface it without caring which of the two conventions a
+// provider used.
+func sunsetHeaderValue(h http.Header) string {
+	if h == nil {
+		return ""
+	}
+	for _, name := range sunsetSignalHeaders {
+		if v := h.Get(name); v != "" {
+			return fmt.Sprintf("%s: %s", name, v)
+		}
+	}
+	return ""
+}
+
+// hashBody returns a stable content fingerprint for documentation-drift
+// detection. A hash, not the body itself, is stored on the registry entry:
+// the point is "has this changed", not mirroring the provider's docs.
+func hashBody(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+// containsSunsetKeyword reports whether documentation prose announces a
+// migration or discontinuation, the weaker signal for providers that do not
+// set a Sunset/Deprecation header (most don't).
+func containsSunsetKeyword(body []byte) string {
+	lower := strings.ToLower(string(body))
+	for _, kw := range sunsetKeywords {
+		if strings.Contains(lower, kw) {
+			return kw
+		}
+	}
+	return ""
 }
 
 // VerifyProvider runs the cheap checks for one provider. Excluded and sunset
@@ -127,11 +245,69 @@ func (v *Verifier) VerifyProvider(ctx context.Context, p *Provider) VerifyResult
 	} {
 		r := v.check(ctx, c.kind, c.url)
 		out.Checks = append(out.Checks, r)
+		if r.Detail != "" {
+			// A sunset/deprecation header on any of these URLs is a warning,
+			// not a failure: the endpoint answered, it is telling us it
+			// won't for much longer.
+			out.Warnings = append(out.Warnings, CheckResult{
+				Kind: c.kind + "_sunset_signal", URL: c.url, Warning: true, Detail: r.Detail,
+			})
+		}
 		if !r.OK() {
 			out.OK = false
 		}
 	}
+
+	if d, newHash, ok := v.checkDocumentationDrift(ctx, p); ok {
+		out.Warnings = append(out.Warnings, d)
+		out.newDocumentationHash = newHash
+	} else if newHash != "" {
+		out.newDocumentationHash = newHash
+	}
+
 	return out
+}
+
+// checkDocumentationDrift fetches the provider's documentation body and
+// compares it against the hash recorded from the last time this check ran.
+// A change is a warning, never a failure: prose changing is common and often
+// unrelated to the API contract, but a human deciding whether to re-review
+// the source needs to know it happened. The hash is only ever compared and
+// updated when the fetch succeeds, so a transient outage cannot manufacture
+// a false "documentation changed" signal.
+//
+// It returns the freshly computed hash whenever the fetch succeeded, drift
+// or not, so Verify can persist "what we last saw" even on a quiet check.
+func (v *Verifier) checkDocumentationDrift(ctx context.Context, p *Provider) (res CheckResult, newHash string, warned bool) {
+	url := strings.TrimSpace(p.DocumentationURL)
+	if url == "" || strings.Contains(url, "{") ||
+		(!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
+		return CheckResult{}, "", false
+	}
+
+	probed, err := v.probe(ctx, url, true)
+	if err != nil {
+		// The plain liveness check above already flagged this as a failure
+		// if it matters; a drift check that cannot fetch has nothing to
+		// compare and stays silent rather than double-reporting.
+		return CheckResult{}, "", false
+	}
+
+	sum := hashBody(probed.body)
+	warn := CheckResult{Kind: "documentation_drift", URL: url, Warning: true, Status: probed.status}
+
+	if kw := containsSunsetKeyword(probed.body); kw != "" {
+		warn.Kind = "documentation_sunset_keyword"
+		warn.Detail = fmt.Sprintf("documentation body contains %q", kw)
+		return warn, sum, true
+	}
+
+	if p.DocumentationContentHash != "" && p.DocumentationContentHash != sum {
+		warn.Detail = fmt.Sprintf("documentation body changed since last check (%s -> %s)",
+			p.DocumentationContentHash[:12], sum[:12])
+		return warn, sum, true
+	}
+	return CheckResult{}, sum, false
 }
 
 // Verify checks every provider and records the outcome on the registry.
@@ -162,14 +338,26 @@ func (v *Verifier) Verify(ctx context.Context, r *Registry, only []string) ([]Ve
 		res := v.VerifyProvider(ctx, p)
 		results = append(results, res)
 
-		p.LastVerified = today
+		// last_verified records the last SUCCESSFUL check, per #22's
+		// acceptance criteria. An outage must never look like a fresh
+		// verification: stamping today's date on a failed check would
+		// erase the one fact worth keeping, which is when the source was
+		// last known to actually work. LastChecked, by contrast, is
+		// stamped every attempt, so "we tried and it failed" is still
+		// distinguishable from "we never checked."
+		p.LastChecked = today
 		if res.OK {
+			p.LastVerified = today
 			p.Stale = false
 			p.StaleReason = ""
 		} else {
 			p.Stale = true
 			p.StaleReason = summarize(res)
 		}
+		if res.newDocumentationHash != "" {
+			p.DocumentationContentHash = res.newDocumentationHash
+		}
+		p.Warnings = warningStrings(res.Warnings)
 
 		if v.Delay > 0 {
 			select {
@@ -182,6 +370,20 @@ func (v *Verifier) Verify(ctx context.Context, r *Registry, only []string) ([]Ve
 
 	sort.Slice(results, func(i, j int) bool { return results[i].ProviderID < results[j].ProviderID })
 	return results, nil
+}
+
+// warningStrings renders a run's warnings for storage on the registry entry.
+// An empty result clears any previous warnings, matching Verify's contract
+// that every field it owns reflects only the most recent check.
+func warningStrings(warnings []CheckResult) []string {
+	if len(warnings) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(warnings))
+	for _, w := range warnings {
+		out = append(out, fmt.Sprintf("%s: %s", w.Kind, w.Detail))
+	}
+	return out
 }
 
 func summarize(res VerifyResult) string {

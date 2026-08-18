@@ -342,12 +342,30 @@ type Provider struct {
 	ReleaseDate string   `yaml:"release_date,omitempty" json:"release_date,omitempty"`
 
 	Status Status `yaml:"status" json:"status"`
-	// LastVerified is stamped by `make verify-providers` (YYYY-MM-DD).
+	// LastVerified is the date of the last SUCCESSFUL `make verify-providers`
+	// check (YYYY-MM-DD). It is the "last known good" fact this issue exists
+	// to preserve: a failed check never advances it, so an outage cannot
+	// masquerade as a fresh verification and the entry always shows how long
+	// a source has actually been confirmed working.
 	LastVerified string `yaml:"last_verified,omitempty" json:"last_verified,omitempty"`
+	// LastChecked is stamped on every verification attempt, success or
+	// failure, so "never checked" and "checked and failing" remain
+	// distinguishable from each other and from LastVerified.
+	LastChecked string `yaml:"last_checked,omitempty" json:"last_checked,omitempty"`
 	// Stale is set when verification failed. Verification never deletes an
-	// entry; it flags it.
+	// entry, downgrades its lifecycle Status, or drops it from federated
+	// search; it flags it, so an outage is visible without being destructive.
 	Stale       bool   `yaml:"stale,omitempty" json:"stale,omitempty"`
 	StaleReason string `yaml:"stale_reason,omitempty" json:"stale_reason,omitempty"`
+	// DocumentationContentHash is the sha256 of the documentation_url body
+	// as of the last successful fetch, used to detect that the docs changed
+	// materially since last_verified without storing the docs themselves.
+	DocumentationContentHash string `yaml:"documentation_content_hash,omitempty" json:"documentation_content_hash,omitempty"`
+	// Warnings carries non-failing signals from the last check: a
+	// Sunset/Deprecation header, a documentation body that changed, a
+	// migration announced in prose. These do not set Stale; they are
+	// information for a human, refreshed on every run.
+	Warnings []string `yaml:"warnings,omitempty" json:"warnings,omitempty"`
 
 	// HistoricalSuccessor / HistoricalPredecessor carry real migrations:
 	// OpenAlex succeeding Microsoft Academic Graph, PatentsView migrating to

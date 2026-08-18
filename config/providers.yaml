@@ -815,24 +815,35 @@ providers:
   - provider_id: "zenodo"
     name: "Zenodo (CERN)"
     provider_type: dataset_repository
-    status: researched
+    status: implemented
     section: "1.4"
     fields:
       - information_computation
-    coverage: "Research outputs, datasets, code"
+    coverage: "Research outputs, datasets, code, general-purpose CERN-hosted repository. Per-record license and access_right preserved on the raw record rather than flattened: resource_type varies per record (dataset, software, publication, ...) and the gateway does not reclassify one into another's shape."
     corpus_size: "~5M records"
     base_url: "https://zenodo.org/api/records"
     source_prefix: "zenodo"
-    canonical_url: "https://zenodo.org/records/{id}"
+    canonical_url: "https://doi.org/{id}"
     tier_fit: "raw, query"
-    auth: "api-key optional"
-    rate_limit: "100/min"
-    license: "per-record (often CC)"
+    auth: "none for search/fetch (api-key only required for authenticated write operations, which this gateway never performs)"
+    rate_limit: "100/min unauthenticated, per Zenodo's published guidance"
+    license: "per-record (often CC); unknown until read per record"
     rights:
       metadata_license: "per-record (often CC)"
       redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "Covers all sciences; CS + long-tail software prominent."
+      terms_url: "https://about.zenodo.org/terms/"
+      verified_on: "2026-08-18"
+      notes: "Licence is per-record and stated in each record's metadata.license field, preserved on Raw. The gateway does not assert a blanket licence across all records; a caller reads the per-record field before redistributing."
+    identifier_schemes:
+      - zenodo-id
+      - doi
+    pagination: "page (page/size query params)"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/zenodo.go's ZenodoNormalizer handles both the search-list shape (hits.hits) and the single-record shape. Covers all sciences; CS + long-tail software prominent. x402-research-gateway#13."
 
   - provider_id: "software-heritage"
     name: "Software Heritage"

@@ -24,9 +24,9 @@
 | Lifecycle status | Sources |
 |---|---|
 | `discovered` | 8 |
-| `researched` | 89 |
+| `researched` | 88 |
 | `registered` | 9 |
-| `implemented` | 13 |
+| `implemented` | 14 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -146,7 +146,7 @@
 | **USENIX (open)** | `researched` | `full_text_repository` | Systems/security papers | ~15k | `HTML + CrossRef` | none | — | CC-BY | `allowed` | raw (via CrossRef) | `usenix` | `https://www.usenix.org/{path}` | — | Most USENIX papers open — fetch PDF via DOI. |
 | **CORE** | `implemented` | `full_text_repository` | Open-access aggregator | ~290M articles, 30M full-text | `https://api.core.ac.uk/v3/` | api-key (free) | 10k/day | CC-BY where upstream OA | `unknown` | raw, query | `core` | `https://core.ac.uk/display/{id}` | — | OA full-text search — major asset for insight tier. Adapter implemented in x402-research-gateway#8 (internal/provider/core.go). Operational only where the operator supplies CORE_API_KEY; the gateway holds no key of its own. Location discovery only: the gateway never fetches, mirrors, or re-serves CORE-hosted content. |
 | **OpenReview** | `researched` | `full_text_repository` | Peer review archives (ICLR, NeurIPS, etc.) | ~200k submissions | `https://api.openreview.net/` | none (polite) | polite | CC-BY | `allowed` | raw, query | `openreview` | `https://openreview.net/forum?id={id}` | — | Only public source of peer-review text at scale. |
-| **Zenodo (CERN)** | `researched` | `dataset_repository` | Research outputs, datasets, code | ~5M records | `https://zenodo.org/api/records` | api-key optional | 100/min | per-record (often CC) | `unknown` | raw, query | `zenodo` | `https://zenodo.org/records/{id}` | — | Covers all sciences; CS + long-tail software prominent. |
+| **Zenodo (CERN)** | `implemented` | `dataset_repository` | Research outputs, datasets, code, general-purpose CERN-hosted repository. Per-record license and access_right preserved on the raw record rather than flattened: resource_type varies per record (dataset, software, publication, ...) and the gateway does not reclassify one into another's shape. | ~5M records | `https://zenodo.org/api/records` | none for search/fetch (api-key only required for authenticated write operations, which this gateway never performs) | 100/min unauthenticated, per Zenodo's published guidance | per-record (often CC); unknown until read per record | `unknown` | raw, query | `zenodo` | `https://doi.org/{id}` | 2026-08-18 | internal/provider/zenodo.go's ZenodoNormalizer handles both the search-list shape (hits.hits) and the single-record shape. Covers all sciences; CS + long-tail software prominent. x402-research-gateway#13. |
 | **Software Heritage** | `researched` | `software_repository` | Source code archive | ~20B files | `https://archive.softwareheritage.org/api/1/` | none | polite | CC-BY (meta) | `allowed` | raw | `swh` | `https://archive.softwareheritage.org/{swhid}` | — | For code citation via SWHID — unique asset. |
 | **Microsoft Academic Graph** | `sunset` | `scholarly_metadata` | ~sunset~ | — | — | — | — | — | `unknown` | sunset 2022 | — | — | — | Do NOT integrate. MAG shut down 2021-12-31. OpenAlex is the successor. |
 | **Google Scholar** | `excluded` | `scholarly_metadata` | — | — | — | — | — | — | `denied` | — | — | — | — | Do NOT integrate. No API, ToS forbids scraping. |

@@ -23,8 +23,8 @@
 
 | Lifecycle status | Sources |
 |---|---|
-| `researched` | 85 |
-| `implemented` | 7 |
+| `researched` | 84 |
+| `implemented` | 8 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -101,7 +101,7 @@
 
 | Name | Status | Type | Domain coverage | Corpus size | Base URL / endpoint | Auth | Rate limit (free) | License | Redistribution | Tier fit | source_prefix | Canonical URL template | Last verified | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **DBLP** | `researched` | `scholarly_metadata` | CS bibliographic, authors, venues | ~7M publications | `https://dblp.org/search/publ/api?q=...&format=json` | none | polite | ODC-BY | `unknown` | raw, query | `dblp` | `https://dblp.org/rec/{key}.html` | — | Canon for CS publication graph. Also a SPARQL endpoint. Endpoints/format: person at /pid/{id}.json |
+| **DBLP** | `implemented` | `scholarly_metadata` | CS bibliographic records, a first-class author search, venue and publication-type distinction | ~7M publications | `https://dblp.org` | none | no published numeric limit; DBLP's own dataset-download FAQ steers heavy use toward the bulk XML dump instead of the search API | CC0-1.0 | `allowed` | raw, query | `dblp` | `https://dblp.org/rec/{key}` | 2026-08-17 | Publication search and author search are both JSON via dblp.org/search/{publ,author}/api. Author search is DBLP's own disambiguation: two people sharing a name return two hits under two distinct DBLP person ids (pid), never merged. Single-record fetch has no JSON representation (/rec/{key}.json 404s); the adapter parses the XML representation at /rec/{key}.xml, which DBLP declares as US-ASCII, a strict subset of UTF-8 the adapter's decoder passes through rather than transcoding. The full dataset is published as CC0 XML at dblp.org/xml/, rebuilt on every site rebuild rather than on a fixed cadence, so bulk_access is true and incremental_updates is false (no delta feed). Verified live against dblp.org 2026-08-17. |
 | **Papers With Code** | `researched` | `scholarly_metadata` | ML papers + code + SOTA benchmarks | ~500k papers | `https://paperswithcode.com/api/v1/` | none | polite | CC-BY-SA | `allowed` | raw, query | `pwc` | `https://paperswithcode.com/paper/{slug}` | — | Benchmarks endpoint uniquely valuable for agents. Endpoints/format: (OpenAPI) |
 | **ACM Digital Library** | `researched` | `scholarly_metadata` | ACM pubs | ~700k | `https://dl.acm.org/action/doSearch` | none (meta via CrossRef) | — | CC-BY where OA | `allowed` | query (CrossRef) | `acm` | `https://doi.org/{doi}` | — | No dedicated public REST — route via CrossRef. Endpoints/format: via CrossRef + (HTML) |
 | **IEEE Xplore** | `researched` | `scholarly_metadata` | IEEE metadata | ~6M | `https://developer.ieee.org/` | api-key (free, approval) | 200/day free | proprietary (meta summary OK) | `unknown` | query | `ieee` | `https://ieeexplore.ieee.org/document/{id}` | — | Metadata-only; full-text paywalled. Endpoints/format: (metadata API) |

@@ -609,3 +609,66 @@ routes:
         email: research@viatika.ai
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- DBLP (x402-research-gateway#31) ---
+  # No auth. Metadata licence is CC0 1.0 per DBLP's dataset FAQ.
+  - id: dblp-publ-search
+    path: /research/dblp/search/publ
+    method: GET
+    description: "DBLP publication search over the CS bibliography."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: dblp
+      providerUrl: https://dblp.org/
+      license: CC0-1.0
+    upstream:
+      baseUrl: https://dblp.org
+      path: /search/publ/api
+      queryParams:
+        format: json
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [q, h, f]
+      timeoutSeconds: 20
+
+  - id: dblp-author-search
+    path: /research/dblp/search/author
+    method: GET
+    description: "DBLP author search, one record per disambiguated DBLP person id."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: dblp
+      providerUrl: https://dblp.org/
+      license: CC0-1.0
+    upstream:
+      baseUrl: https://dblp.org
+      path: /search/author/api
+      queryParams:
+        format: json
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [q, h, f]
+      timeoutSeconds: 20
+
+  - id: dblp-fetch
+    path: /research/dblp/fetch
+    method: GET
+    description: "Fetch a single DBLP bibliographic record by DBLP key."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: dblp
+      providerUrl: https://dblp.org/
+      license: CC0-1.0
+    upstream:
+      baseUrl: https://dblp.org
+      pathTemplate: /rec/{id}.xml
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20

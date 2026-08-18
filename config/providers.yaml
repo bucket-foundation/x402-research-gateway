@@ -531,24 +531,39 @@ providers:
   - provider_id: "dblp"
     name: "DBLP"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.4"
     fields:
       - information_computation
-    coverage: "CS bibliographic, authors, venues"
+    coverage: "CS bibliographic records, a first-class author search, venue and publication-type distinction"
     corpus_size: "~7M publications"
-    base_url: "https://dblp.org/search/publ/api?q=...&format=json"
+    base_url: "https://dblp.org"
     source_prefix: "dblp"
-    canonical_url: "https://dblp.org/rec/{key}.html"
+    canonical_url: "https://dblp.org/rec/{key}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
-    license: "ODC-BY"
+    rate_limit: "no published numeric limit; DBLP's own dataset-download FAQ steers heavy use toward the bulk XML dump instead of the search API"
+    license: "CC0-1.0"
     rights:
-      metadata_license: "ODC-BY"
-      redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "Canon for CS publication graph. Also a SPARQL endpoint. Endpoints/format: person at /pid/{id}.json"
+      metadata_license: "CC0-1.0"
+      redistribution: allowed
+      verified_on: "2026-08-17"
+      notes: "Corrected from a prior ODC-BY/unknown entry: DBLP's current dataset FAQ states the metadata is released as open data under CC0 1.0, for both the API responses and the bulk XML dump. The per-publication access flag (open/closed) describes the linked external full text, never the DBLP metadata record, and is recorded separately on each asset."
+    identifier_schemes:
+      - dblp
+      - doi
+    pagination: "page (h/f parameters on the search API)"
+    bulk_access: true
+    incremental_updates: false
+    formats:
+      - json
+      - xml
+    last_verified: "2026-08-17"
+    route_ids:
+      - dblp-publ-search
+      - dblp-author-search
+      - dblp-fetch
+    notes: "Publication search and author search are both JSON via dblp.org/search/{publ,author}/api. Author search is DBLP's own disambiguation: two people sharing a name return two hits under two distinct DBLP person ids (pid), never merged. Single-record fetch has no JSON representation (/rec/{key}.json 404s); the adapter parses the XML representation at /rec/{key}.xml, which DBLP declares as US-ASCII, a strict subset of UTF-8 the adapter's decoder passes through rather than transcoding. The full dataset is published as CC0 XML at dblp.org/xml/, rebuilt on every site rebuild rather than on a fixed cadence, so bulk_access is true and incremental_updates is false (no delta feed). Verified live against dblp.org 2026-08-17."
 
   - provider_id: "papers-with-code"
     name: "Papers With Code"

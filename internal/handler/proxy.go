@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gianyrox/x402-research-gateway/internal/auth"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 )
 
@@ -59,6 +60,23 @@ func proxyToUpstream(ctx context.Context, client *http.Client, route *config.Rou
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("Accept", "application/json")
+
+	// Gateway-minted auth (x402-research-gateway#29): a route naming an
+	// AuthTokenSource gets a bearer token from the internal/auth registry.
+	// The token itself never enters a log line, an error message, or
+	// ProxyResult; only this header holds it, and it leaves the process
+	// only on the wire to upstream.
+	if upstream.AuthTokenSource != "" {
+		ts, ok := auth.Get(upstream.AuthTokenSource)
+		if !ok {
+			return nil, fmt.Errorf("upstream auth: no token source registered for %q", upstream.AuthTokenSource)
+		}
+		token, err := ts.Token(reqCtx)
+		if err != nil {
+			return nil, fmt.Errorf("upstream auth: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

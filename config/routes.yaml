@@ -827,3 +827,52 @@ routes:
         Authorization: "Bearer ${CORE_API_KEY}"
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- ORCID (x402-research-gateway#29) ---
+  # The gateway's first credentialed provider: authTokenSource: orcid names
+  # the internal/auth.ClientCredentialsSource registered from
+  # ORCID_CLIENT_ID/ORCID_CLIENT_SECRET at startup (cmd/gateway/main.go),
+  # which mints and caches a client-credentials bearer token
+  # (grant_type=client_credentials, scope=/read-public) against
+  # https://orcid.org/oauth/token. No static Authorization header: the
+  # token is minted, cached ~20 years per ORCID's own expires_in, and
+  # injected by internal/handler/proxy.go, never written into this file.
+  - id: orcid-fetch
+    path: /research/orcid/fetch
+    method: GET
+    description: "ORCID researcher record by ORCID iD."
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: raw
+    citation:
+      sourcePrefix: orcid
+      providerUrl: https://orcid.org/
+      license: CC0
+    upstream:
+      baseUrl: https://pub.orcid.org
+      pathTemplate: /v3.0/{id}/record
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      authTokenSource: orcid
+      timeoutSeconds: 20
+
+  - id: orcid-search
+    path: /research/orcid/search
+    method: GET
+    description: "ORCID researcher search (SOLR syntax) over public identity records."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: orcid
+      providerUrl: https://orcid.org/
+      license: CC0
+    upstream:
+      baseUrl: https://pub.orcid.org
+      path: /v3.0/expanded-search/
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [q, start, rows]
+      authTokenSource: orcid
+      timeoutSeconds: 20

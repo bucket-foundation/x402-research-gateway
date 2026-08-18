@@ -298,6 +298,12 @@ type UpstreamConfig struct {
 	QueryParams  map[string]string `yaml:"queryParams"`
 	PassThrough  []string          `yaml:"passThrough"`
 	Timeout      int               `yaml:"timeoutSeconds"`
+	// AuthTokenSource names a TokenSource registered in internal/auth
+	// (e.g. "orcid") that mints this upstream's bearer token. Empty means
+	// no gateway-minted auth; a static secret still works via Headers with
+	// `${ENV_VAR}` substitution (see the CORE routes), which is preferred
+	// whenever the upstream's own key needs no minting or caching.
+	AuthTokenSource string `yaml:"authTokenSource"`
 }
 
 // LoadFromFile loads gateway configuration from a YAML file, with env overrides.

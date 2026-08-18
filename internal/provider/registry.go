@@ -83,5 +83,12 @@ func DefaultRegistry() Registry {
 		// rights, neither of which the declarative path can express.
 		ZbMATHSearchAdapter.ID: ZbMATHSearchAdapter,
 		ZbMATHFetchAdapter.ID:  ZbMATHFetchAdapter,
+
+		// ORCID (x402-research-gateway#29): the gateway's first credentialed
+		// provider (client-credentials token, internal/auth). Registered for
+		// external-identifier preservation, works cross-referencing, and CC0
+		// rights, none of which the declarative path can express.
+		ORCIDFetchAdapter.ID:  ORCIDFetchAdapter,
+		ORCIDSearchAdapter.ID: ORCIDSearchAdapter,
 	}
 }

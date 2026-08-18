@@ -153,6 +153,64 @@ type feed402Hit struct {
 	SourceID     string `json:"source_id"`
 	CanonicalURL string `json:"canonical_url,omitempty"`
 	Rank         int    `json:"rank"`
+	// Multilingual carries the language/script/alternative-form metadata a
+	// provider published for this record (x402-research-gateway#21), when
+	// the route's adapter implements provider.MultilingualProvider. Omitted
+	// entirely for a record with no such data and for a route whose adapter
+	// does not implement the capability, so "no data" and "not supported"
+	// stay distinguishable at the wire boundary the same way every other
+	// optional adapter capability in this file does.
+	Multilingual *feed402Multilingual `json:"multilingual,omitempty"`
+}
+
+// feed402LocalizedForm mirrors internal/provider.LocalizedForm at the wire
+// boundary (x402-research-gateway#21). Kind and Provider are always present
+// on a non-empty form so a consumer can tell an original-script title from
+// a translation and knows who asserted it; the gateway never fills Provider
+// with its own name for a form it did not itself produce, since it never
+// produces one — no field in this shape is machine-generated.
+type feed402LocalizedForm struct {
+	Value    string `json:"value"`
+	Language string `json:"language,omitempty"`
+	Script   string `json:"script,omitempty"`
+	Kind     string `json:"kind"`
+	Provider string `json:"provider,omitempty"`
+}
+
+// feed402Multilingual mirrors internal/provider.Multilingual at the wire
+// boundary (x402-research-gateway#21). There is no canonical-English field
+// here, by design: Language is the provider's own assertion about this
+// record's primary language, carried verbatim, never a gateway default: a
+// record whose provider published no language reports an empty string, not
+// "en".
+type feed402Multilingual struct {
+	Language         string                 `json:"language,omitempty"`
+	OriginalLanguage string                 `json:"original_language,omitempty"`
+	Forms            []feed402LocalizedForm `json:"forms,omitempty"`
+}
+
+// convertMultilingual maps the provider-layer model to its wire shape. A
+// zero-value Multilingual (no language, no original language, no forms)
+// converts to nil so an empty object is never emitted where "no data" is
+// the honest answer.
+func convertMultilingual(m provider.Multilingual) *feed402Multilingual {
+	if m.Language == "" && m.OriginalLanguage == "" && len(m.Forms) == 0 {
+		return nil
+	}
+	out := &feed402Multilingual{
+		Language:         m.Language,
+		OriginalLanguage: m.OriginalLanguage,
+	}
+	for _, f := range m.Forms {
+		out.Forms = append(out.Forms, feed402LocalizedForm{
+			Value:    f.Value,
+			Language: f.Language,
+			Script:   f.Script,
+			Kind:     string(f.Kind),
+			Provider: f.Provider,
+		})
+	}
+	return out
 }
 
 // hitsForRoute extracts per-hit citation handles for a search-tier response
@@ -181,6 +239,14 @@ func (h *Handler) hitsForRoute(routeID string, body []byte) []feed402Hit {
 	hits := make([]feed402Hit, len(providerHits))
 	for i, ph := range providerHits {
 		hits[i] = feed402Hit{SourceID: ph.SourceID, CanonicalURL: ph.CanonicalURL, Rank: ph.Rank}
+		// GenericCitationProvider (the only CitationProvider implementation
+		// in this codebase) sets Rank to the record's original 1-based
+		// index, so Rank-1 addresses the record this hit came from. That
+		// convention is what lets a per-hit Multilingual lookup avoid
+		// re-normalizing or re-matching by ID.
+		if adapter.MultilingualProvider != nil && ph.Rank >= 1 && ph.Rank <= len(records) {
+			hits[i].Multilingual = convertMultilingual(adapter.MultilingualProvider.Multilingual(records[ph.Rank-1]))
+		}
 	}
 	return hits
 }

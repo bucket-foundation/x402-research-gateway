@@ -654,3 +654,96 @@ func TestParsePriceUSD(t *testing.T) {
 		}
 	}
 }
+
+// TestWrapFeed402Envelope_MultilingualReachesHTTPResponse is the
+// envelope-level fixture x402-research-gateway#21 asks for: proof that
+// provider.MultilingualProvider data reaches the actual HTTP response body,
+// not just the provider-layer Multilingual() unit tests in
+// internal/provider/multilingual_test.go. Uses the "crossref-search" route,
+// which internal/provider.DefaultRegistry() backs with an adapter
+// implementing MultilingualProvider (this session's wiring), against a
+// Cyrillic-titled work carrying a language tag and an original-title form.
+func TestWrapFeed402Envelope_MultilingualReachesHTTPResponse(t *testing.T) {
+	cfg := testCfg()
+	cfg.Routes = append(cfg.Routes, config.RouteConfig{
+		ID:          "crossref-search",
+		Path:        "/research/crossref/search",
+		Method:      "GET",
+		Description: "Search Crossref works",
+		Price:       "0.001",
+		Feed402Tier: "query",
+		Citation: config.RouteCitation{
+			SourcePrefix: "crossref",
+			ProviderURL:  "https://api.crossref.org/works",
+			License:      "cc0-metadata",
+		},
+		Upstream: config.UpstreamConfig{
+			BaseURL: "https://api.crossref.org",
+			Path:    "/works",
+		},
+	})
+	h := newTestHandler(cfg)
+	route := &cfg.Routes[len(cfg.Routes)-1]
+	req := mustReq(t, "https://api.example.com/research/crossref/search?query=quantum+entanglement")
+
+	body := []byte(`{"message":{"items":[{"DOI":"10.1234/cyr1","URL":"https://doi.org/10.1234/cyr1","title":["Новый метод наблюдения квантовой запутанности"],"original-title":["Новый метод наблюдения квантовой запутанности"],"language":"ru"}]}}`)
+	wrapped, err := h.wrapFeed402Envelope(route, body, "0xabc", "0xtx", req)
+	if err != nil {
+		t.Fatalf("wrap: %v", err)
+	}
+
+	var env feed402Envelope
+	if err := json.Unmarshal(wrapped, &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	var d struct {
+		Hits []feed402Hit `json:"hits"`
+	}
+	if err := json.Unmarshal(env.Data, &d); err != nil {
+		t.Fatalf("unmarshal data: %v", err)
+	}
+	if len(d.Hits) != 1 {
+		t.Fatalf("data.hits: got %d want 1", len(d.Hits))
+	}
+	ml := d.Hits[0].Multilingual
+	if ml == nil {
+		t.Fatal("hits[0].multilingual should be populated: the adapter implements MultilingualProvider and the record carries a language tag")
+	}
+	if ml.Language != "ru" {
+		t.Errorf("hits[0].multilingual.language: got %q want ru", ml.Language)
+	}
+	if len(ml.Forms) != 1 || ml.Forms[0].Kind != "original" || ml.Forms[0].Provider != "crossref" {
+		t.Errorf("hits[0].multilingual.forms: got %+v", ml.Forms)
+	}
+	if ml.Forms[0].Value != "Новый метод наблюдения квантовой запутанности" {
+		t.Errorf("hits[0].multilingual.forms[0].value: got %q", ml.Forms[0].Value)
+	}
+
+	// No field on this response designates an English form as canonical:
+	// the response carries only what Crossref published (Russian language
+	// tag, original-language title), nothing gateway-generated.
+	raw, _ := json.Marshal(env)
+	if strings.Contains(strings.ToLower(string(raw)), `"canonical_language"`) {
+		t.Error("no field should designate a canonical/English language")
+	}
+}
+
+// TestWrapFeed402Envelope_NoMultilingualProviderOmitsField pins the other
+// side of the same contract: a route whose adapter does not implement
+// MultilingualProvider (pubmed-search has no adapter at all) must never
+// emit a `multilingual` key, so "not supported" and "supported, no data"
+// stay distinguishable at the wire boundary.
+func TestWrapFeed402Envelope_NoMultilingualProviderOmitsField(t *testing.T) {
+	cfg := testCfg()
+	h := newTestHandler(cfg)
+	route := &cfg.Routes[0] // pubmed-search, no adapter registered
+	req := mustReq(t, "https://api.example.com/research/pubmed/search?term=x")
+
+	body := []byte(`{"esearchresult":{"idlist":["1"]}}`)
+	wrapped, _ := h.wrapFeed402Envelope(route, body, "0xabc", "0xtx", req)
+	var env feed402Envelope
+	_ = json.Unmarshal(wrapped, &env)
+	if strings.Contains(string(env.Data), "multilingual") {
+		t.Errorf("declarative-only route should never emit a multilingual key; data = %s", env.Data)
+	}
+}

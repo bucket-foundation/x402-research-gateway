@@ -94,10 +94,15 @@ func (crossrefFetchByDOI) IdentifierSchemes() []string { return []string{"doi"} 
 
 // crossrefWork is the subset of a work record the adapters read.
 type crossrefWork struct {
-	DOI    string   `json:"DOI"`
-	URL    string   `json:"URL"`
-	Title  []string `json:"title"`
-	Issued struct {
+	DOI           string   `json:"DOI"`
+	URL           string   `json:"URL"`
+	Title         []string `json:"title"`
+	OriginalTitle []string `json:"original-title"`
+	// Language is the ISO 639 code Crossref publishes for the item as
+	// published (x402-research-gateway#21), the provider's own assertion
+	// about this record's language, never a gateway default.
+	Language string `json:"language"`
+	Issued   struct {
 		DateParts [][]int `json:"date-parts"`
 	} `json:"issued"`
 	Author []struct {
@@ -304,6 +309,37 @@ func (c crossrefIdentity) Assets(rec NormalizedRecord) []Asset {
 	return out
 }
 
+// Multilingual reports the item language Crossref publishes and, when the
+// item was translated, its original-language title (x402-research-gateway
+// #21). `title` is what Crossref indexes as the work's title, which for a
+// translated item is the translated form; `original-title` is a distinct
+// field Crossref reserves for the original-language title, so the two are
+// never collapsed. Most works carry neither field beyond `language`, which
+// is a valid outcome, not an error.
+func (c crossrefIdentity) Multilingual(rec NormalizedRecord) Multilingual {
+	w, ok := c.parse(rec)
+	if !ok {
+		return Multilingual{}
+	}
+	m := Multilingual{Language: w.Language}
+	for _, t := range w.OriginalTitle {
+		if t == "" {
+			continue
+		}
+		// Crossref does not publish a language tag on original-title
+		// itself; `language` describes the item as published (the
+		// translated `title`), not this original-language form, so
+		// Language is left empty here rather than borrowed from a
+		// different field it does not describe.
+		m.Forms = append(m.Forms, LocalizedForm{
+			Value:    t,
+			Kind:     FormOriginal,
+			Provider: "crossref",
+		})
+	}
+	return m
+}
+
 // crossrefSync reports what bulk and incremental access Crossref offers.
 // The REST API supports incremental harvest through `from-index-date` and
 // cursor paging, which is open. Whole-corpus monthly dumps are the paid
@@ -329,6 +365,7 @@ var CrossrefSearchAdapter = &Adapter{
 	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
 	IntegrityProvider:      crossrefIdentity{},
+	MultilingualProvider:   crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }
 
@@ -347,5 +384,6 @@ var CrossrefFetchAdapter = &Adapter{
 	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
 	IntegrityProvider:      crossrefIdentity{},
+	MultilingualProvider:   crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }

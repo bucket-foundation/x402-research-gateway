@@ -109,5 +109,23 @@ func DefaultRegistry() Registry {
 		BioRxivFetchAdapter.ID:  BioRxivFetchAdapter,
 		MedRxivSearchAdapter.ID: MedRxivSearchAdapter,
 		MedRxivFetchAdapter.ID:  MedRxivFetchAdapter,
+
+		// OEIS (x402-research-gateway#17): source objects, not papers,
+		// registered for the xref-derived object-relation graph between
+		// sequences and CC BY-SA 4.0 rights.
+		OEISSearchAdapter.ID: OEISSearchAdapter,
+		OEISFetchAdapter.ID:  OEISFetchAdapter,
+
+		// LMFDB (x402-research-gateway#17): a table-agnostic adapter over
+		// LMFDB's shared {table, data[]} API envelope; native per-table
+		// fields preserved on Raw unflattened.
+		LMFDBSearchAdapter.ID: LMFDBSearchAdapter,
+		LMFDBFetchAdapter.ID:  LMFDBFetchAdapter,
+
+		// BioModels (x402-research-gateway#17): curated systems-biology
+		// models, CC0, registered for the search/single-record shape split
+		// the declarative path cannot express.
+		BioModelsSearchAdapter.ID: BioModelsSearchAdapter,
+		BioModelsFetchAdapter.ID:  BioModelsFetchAdapter,
 	}
 }

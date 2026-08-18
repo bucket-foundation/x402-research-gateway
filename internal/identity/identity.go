@@ -122,7 +122,11 @@ var (
 	s2Re     = regexp.MustCompile(`(?i)\b([0-9a-f]{40})\b`)
 	orcidRe  = regexp.MustCompile(`(\d{4}-\d{4}-\d{4}-\d{3}[\dXx])`)
 	rorRe    = regexp.MustCompile(`(?i)\b(0[0-9a-hj-km-np-tv-z]{8})\b`)
-	zbmathRe = regexp.MustCompile(`(\d{7}\.\d{5})`)
+	// zbl identifiers are four digits, a dot, and five digits (e.g.
+	// "0794.68104", "0197.43702"), confirmed against live zbMATH Open
+	// records during x402-research-gateway#32's verification on
+	// 2026-08-17. A prior seven-digit prefix never matched a real zbl id.
+	zbmathRe = regexp.MustCompile(`(\d{4}\.\d{5})`)
 )
 
 func init() {

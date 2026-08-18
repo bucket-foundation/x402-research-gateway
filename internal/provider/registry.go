@@ -69,5 +69,11 @@ func DefaultRegistry() Registry {
 		DBLPPublSearchAdapter.ID:   DBLPPublSearchAdapter,
 		DBLPAuthorSearchAdapter.ID: DBLPAuthorSearchAdapter,
 		DBLPFetchAdapter.ID:        DBLPFetchAdapter,
+
+		// zbMATH Open (x402-research-gateway#32): MSC codes with their
+		// edition preserved, and review text kept apart from bibliographic
+		// rights, neither of which the declarative path can express.
+		ZbMATHSearchAdapter.ID: ZbMATHSearchAdapter,
+		ZbMATHFetchAdapter.ID:  ZbMATHFetchAdapter,
 	}
 }

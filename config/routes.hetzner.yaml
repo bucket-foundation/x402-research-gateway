@@ -672,3 +672,44 @@ routes:
         User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- zbMATH Open (x402-research-gateway#32) ---
+  # No auth, empirically confirmed. Review text is a separate authored
+  # work from the bibliographic record and carries no redistribution grant.
+  - id: zbmath-search
+    path: /research/zbmath/search
+    method: GET
+    description: "zbMATH Open search over reviewed mathematics literature."
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: query
+    citation:
+      sourcePrefix: zbmath
+      providerUrl: https://zbmath.org/
+      license: unknown
+    upstream:
+      baseUrl: https://api.zbmath.org
+      path: /v1/document/_search
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [search_string, results_per_page, page]
+      timeoutSeconds: 20
+
+  - id: zbmath-fetch
+    path: /research/zbmath/fetch
+    method: GET
+    description: "Fetch a single zbMATH Open document by zbMATH document id or zbl identifier."
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: raw
+    citation:
+      sourcePrefix: zbmath
+      providerUrl: https://zbmath.org/
+      license: unknown
+    upstream:
+      baseUrl: https://api.zbmath.org
+      pathTemplate: /v1/document/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20

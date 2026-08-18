@@ -54,23 +54,37 @@ providers:
   - provider_id: "zbmath-open-rest"
     name: "zbMATH Open REST"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.1"
     fields:
       - mathematics
-    coverage: "Reviewed math literature, abstracts, author + classification graph"
+    coverage: "Reviewed math literature, abstracts, MSC classification with edition, author + classification graph"
     corpus_size: "~4.5M records"
-    base_url: "https://api.zbmath.org/v1/"
+    base_url: "https://api.zbmath.org/v1"
     source_prefix: "zbmath"
     canonical_url: "https://zbmath.org/{id}"
-    tier_fit: "raw (by zbl id), query (`/document?q=`)"
-    auth: "none"
-    rate_limit: "soft (polite)"
-    license: "CC-BY 4.0 (metadata)"
+    tier_fit: "raw (by zbl id), query (/document/_search)"
+    auth: "none, empirically confirmed by unauthenticated queries returning full records"
+    rate_limit: "no numeric limit published on the API landing page as of 2026-08-17"
+    license: "unverified this session at the record level; see rights notes"
     rights:
-      metadata_license: "CC-BY 4.0 (metadata)"
-      redistribution: allowed
-    notes: "Open since 2021 (post–zbMATH-classic). OAI-PMH also at https://oai.zbmath.org/. Docs: https://api.zbmath.org/v1/ Endpoints/format: (endpoints: /document, /author, /classification, /serial, /software)"
+      metadata_license: "unknown"
+      redistribution: unknown
+      verified_on: "2026-08-17"
+      notes: "Corrected from a prior CC-BY-4.0/allowed entry: this session's live queries found the API's own license field empty ([]) on every record sampled, and the zbMATH terms/about pages returned 403 to an unauthenticated fetch, so the prior claim could not be re-verified and is not carried forward as fact. Unknown is not permission. Distinct and more certain: review text is authored commentary a named or pseudonymous reviewer wrote, is never covered by any bibliographic-metadata licence, and this adapter never treats it as redistributable."
+    identifier_schemes:
+      - zbmath
+      - doi
+    pagination: "page"
+    bulk_access: false
+    incremental_updates: true
+    formats:
+      - json
+    last_verified: "2026-08-17"
+    route_ids:
+      - zbmath-search
+      - zbmath-fetch
+    notes: "MSC classification codes are preserved with their scheme (e.g. msc2020) rather than normalized to one edition, since the same numeric code names a different subject across the 2000/2010/2020 revisions. Reviews (editorial_contributions) are preserved as a distinct field from the bibliographic record, each carrying its own reviewer sign and contribution type, never folded into asset discovery or treated as redistributable under the record's rights. An OAI-PMH endpoint at oai.zbmath.org/v1/ answered Identify unauthenticated during verification, so incremental_updates is true; no full-corpus bulk export for unauthenticated use was found, so bulk_access is false. Open since 2021 (post-zbMATH-classic). Verified live against api.zbmath.org and oai.zbmath.org 2026-08-17."
 
   - provider_id: "oeis"
     name: "OEIS (Sloane)"

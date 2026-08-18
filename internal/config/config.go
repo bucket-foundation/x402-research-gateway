@@ -95,6 +95,20 @@ type Feed402Config struct {
 	// handler at Harvest.Path that serves one page plus a signed cursor,
 	// and accepts that cursor back to resume from the exact position.
 	Harvest HarvestConfig `yaml:"harvest"`
+	// SyncDiscovery (optional) turns on the free bulk and incremental
+	// capability listing (x402-research-gateway#11). It reads the provider
+	// registry and describes what each provider publishes; it serves no
+	// artifact.
+	SyncDiscovery SyncDiscoveryConfig `yaml:"syncDiscovery"`
+}
+
+// SyncDiscoveryConfig configures the free sync-capability endpoint.
+type SyncDiscoveryConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"` // e.g. "/research/sync"
+	// RegistryPath is the provider registry the listing reads. Default
+	// config/providers.yaml.
+	RegistryPath string `yaml:"registryPath"`
 }
 
 // HarvestConfig configures the resumable harvest endpoint.
@@ -454,6 +468,14 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Integrity.TimeoutSeconds == 0 {
 				cfg.Feed402.Integrity.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.SyncDiscovery.Enabled {
+			if cfg.Feed402.SyncDiscovery.Path == "" {
+				cfg.Feed402.SyncDiscovery.Path = "/research/sync"
+			}
+			if cfg.Feed402.SyncDiscovery.RegistryPath == "" {
+				cfg.Feed402.SyncDiscovery.RegistryPath = "config/providers.yaml"
 			}
 		}
 		if cfg.Feed402.Harvest.Enabled {

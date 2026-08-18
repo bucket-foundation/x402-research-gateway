@@ -162,6 +162,130 @@ func (r Rights) RedistributionAllowed() bool {
 	return r.Redistribution == "allowed"
 }
 
+// SyncMode names how a provider offers whole-corpus or incremental access
+// (x402-research-gateway#11). The set is closed: an unreviewed string cannot
+// enter the registry and be read by an agent as a promise.
+type SyncMode string
+
+const (
+	// SyncBulkSnapshot is a periodically published whole-corpus file set.
+	SyncBulkSnapshot SyncMode = "bulk_snapshot"
+	// SyncDump is a database dump, distinct from a curated snapshot in that
+	// it mirrors the provider's own storage shape.
+	SyncDump   SyncMode = "dump"
+	SyncOAIPMH SyncMode = "oai_pmh"
+	// SyncChangeFeed is a stream of record changes.
+	SyncChangeFeed SyncMode = "change_feed"
+	// SyncIncrementalCursor is a cursor over changed records in the query
+	// API itself.
+	SyncIncrementalCursor SyncMode = "incremental_cursor"
+	// SyncReleaseBased means updates arrive as discrete numbered releases.
+	SyncReleaseBased SyncMode = "release_based"
+	// SyncDateWindow means the API accepts a modified-since window.
+	SyncDateWindow SyncMode = "date_window"
+)
+
+var SyncModes = []SyncMode{
+	SyncBulkSnapshot, SyncDump, SyncOAIPMH, SyncChangeFeed,
+	SyncIncrementalCursor, SyncReleaseBased, SyncDateWindow,
+}
+
+func (m SyncMode) Valid() bool {
+	for _, x := range SyncModes {
+		if x == m {
+			return true
+		}
+	}
+	return false
+}
+
+// Snapshot describes one downloadable artifact. The gateway describes it and
+// never serves it: an agent fetches the file from the provider directly.
+//
+// Absent fields are absent facts. A snapshot whose size or checksum the
+// provider does not publish carries neither, rather than an estimate an
+// agent could act on.
+type Snapshot struct {
+	// URL is where the provider publishes the artifact or its index.
+	URL string `yaml:"url,omitempty" json:"url,omitempty"`
+	// Version and Release identify what this artifact is, in the provider's
+	// own vocabulary.
+	Version string `yaml:"version,omitempty" json:"version,omitempty"`
+	Release string `yaml:"release,omitempty" json:"release,omitempty"`
+	// Checksum is the provider-published digest, with its algorithm named
+	// separately so a client knows what to compute.
+	Checksum          string `yaml:"checksum,omitempty" json:"checksum,omitempty"`
+	ChecksumAlgorithm string `yaml:"checksum_algorithm,omitempty" json:"checksum_algorithm,omitempty"`
+	// Size is prose, because providers publish it in incomparable units.
+	Size   string `yaml:"size,omitempty" json:"size,omitempty"`
+	Format string `yaml:"format,omitempty" json:"format,omitempty"`
+	// LastModified is the artifact's own publication date (YYYY-MM-DD).
+	LastModified string `yaml:"last_modified,omitempty" json:"last_modified,omitempty"`
+	// UpdateFrequency is how often the provider republishes it.
+	UpdateFrequency string `yaml:"update_frequency,omitempty" json:"update_frequency,omitempty"`
+	// Auth is what the artifact needs to download: none, api-key,
+	// requester-pays, subscription.
+	Auth string `yaml:"auth,omitempty" json:"auth,omitempty"`
+	// Rights are the terms on the artifact, which are routinely stricter
+	// than the API's. Unknown grants nothing.
+	Rights Rights `yaml:"rights,omitempty" json:"rights,omitempty"`
+	Notes  string `yaml:"notes,omitempty" json:"notes,omitempty"`
+}
+
+// Sync is a provider's whole-corpus and incremental access, as the registry
+// records it (x402-research-gateway#11).
+//
+// Representing is the goal. The gateway is not a mirror, a CDN, or a
+// snapshot host, and a multi-gigabyte dump proxied through a metered HTTP
+// endpoint would multiply cost, add a failure point, and in several cases
+// breach the provider's redistribution terms.
+type Sync struct {
+	Modes     []SyncMode `yaml:"modes,omitempty" json:"modes,omitempty"`
+	Snapshots []Snapshot `yaml:"snapshots,omitempty" json:"snapshots,omitempty"`
+	// IncrementalMethod names how a client picks up changes, in the
+	// provider's own terms, e.g. "from-index-date filter on /works".
+	IncrementalMethod string `yaml:"incremental_method,omitempty" json:"incremental_method,omitempty"`
+	// CursorSemantics states what the incremental cursor guarantees:
+	// whether it is stable, whether deletions appear, whether a resumed
+	// scan can miss a record.
+	CursorSemantics string `yaml:"cursor_semantics,omitempty" json:"cursor_semantics,omitempty"`
+	// OAIPMHEndpoint is registered even before a harvester exists, because
+	// an agent asking whether one exists deserves the answer.
+	OAIPMHEndpoint         string   `yaml:"oai_pmh_endpoint,omitempty" json:"oai_pmh_endpoint,omitempty"`
+	OAIPMHMetadataPrefixes []string `yaml:"oai_pmh_metadata_prefixes,omitempty" json:"oai_pmh_metadata_prefixes,omitempty"`
+	// ServeDirect records that this provider'"'"'s incremental feed is small and
+	// permissive enough for the gateway to serve through the normal metered
+	// path. It is a per-provider decision on size and rights, never a
+	// global one, and Validate requires the reasoning beside it.
+	ServeDirect          bool   `yaml:"serve_direct,omitempty" json:"serve_direct,omitempty"`
+	ServeDirectRationale string `yaml:"serve_direct_rationale,omitempty" json:"serve_direct_rationale,omitempty"`
+	// Verified reports that a human checked these facts against the
+	// provider rather than transcribing its documentation. An unverified
+	// entry is usable and is labeled: an agent planning a 200GB download
+	// needs to know which it is reading.
+	Verified   bool   `yaml:"verified,omitempty" json:"verified,omitempty"`
+	VerifiedOn string `yaml:"verified_on,omitempty" json:"verified_on,omitempty"`
+	// UnverifiedReason says why not, when Verified is false.
+	UnverifiedReason string `yaml:"unverified_reason,omitempty" json:"unverified_reason,omitempty"`
+	Notes            string `yaml:"notes,omitempty" json:"notes,omitempty"`
+}
+
+// Declared reports whether this provider has any sync capability recorded.
+func (s Sync) Declared() bool {
+	return len(s.Modes) > 0 || len(s.Snapshots) > 0 ||
+		s.OAIPMHEndpoint != "" || s.IncrementalMethod != ""
+}
+
+// HasMode reports whether a mode is declared.
+func (s Sync) HasMode(m SyncMode) bool {
+	for _, got := range s.Modes {
+		if got == m {
+			return true
+		}
+	}
+	return false
+}
+
 // Provider is one research source.
 type Provider struct {
 	ProviderID string       `yaml:"provider_id" json:"provider_id"`
@@ -201,6 +325,12 @@ type Provider struct {
 
 	QueryLanguage string `yaml:"query_language,omitempty" json:"query_language,omitempty"`
 	Pagination    string `yaml:"pagination,omitempty" json:"pagination,omitempty"`
+
+	// Sync is the bulk and incremental access model
+	// (x402-research-gateway#11). BulkAccess and IncrementalUpdates below
+	// stay as the coarse booleans they always were; Sync is the detail, and
+	// Validate keeps the two consistent.
+	Sync Sync `yaml:"sync,omitempty" json:"sync,omitempty"`
 
 	BulkAccess         bool `yaml:"bulk_access,omitempty" json:"bulk_access,omitempty"`
 	IncrementalUpdates bool `yaml:"incremental_updates,omitempty" json:"incremental_updates,omitempty"`
@@ -261,6 +391,34 @@ func (p Provider) Validate() []error {
 	}
 	if p.Status == StatusExcluded && p.Notes == "" {
 		errs = append(errs, fmt.Errorf("%s: excluded providers must retain a research note", p.ProviderID))
+	}
+
+	for _, m := range p.Sync.Modes {
+		if !m.Valid() {
+			errs = append(errs, fmt.Errorf("%s: unknown sync mode %q", p.ProviderID, m))
+		}
+	}
+	// Serving a provider'"'"'s feed through the metered path is a decision about
+	// size and rights, so the registry refuses to record it without the
+	// reasoning.
+	if p.Sync.ServeDirect && p.Sync.ServeDirectRationale == "" {
+		errs = append(errs, fmt.Errorf("%s: serve_direct needs a serve_direct_rationale", p.ProviderID))
+	}
+	// An unverified sync entry is usable and must say so, because an agent
+	// planning a whole-corpus download acts on it.
+	if p.Sync.Declared() && !p.Sync.Verified && p.Sync.UnverifiedReason == "" {
+		errs = append(errs, fmt.Errorf("%s: unverified sync metadata needs an unverified_reason", p.ProviderID))
+	}
+	// The coarse booleans and the detailed model must agree, so a consumer
+	// reading either one gets the same answer.
+	bulkModes := p.Sync.HasMode(SyncBulkSnapshot) || p.Sync.HasMode(SyncDump)
+	if bulkModes && !p.BulkAccess {
+		errs = append(errs, fmt.Errorf("%s: sync declares a bulk mode but bulk_access is false", p.ProviderID))
+	}
+	incrementalModes := p.Sync.HasMode(SyncOAIPMH) || p.Sync.HasMode(SyncChangeFeed) ||
+		p.Sync.HasMode(SyncIncrementalCursor) || p.Sync.HasMode(SyncDateWindow)
+	if incrementalModes && !p.IncrementalUpdates {
+		errs = append(errs, fmt.Errorf("%s: sync declares an incremental mode but incremental_updates is false", p.ProviderID))
 	}
 
 	// A provider serving traffic has to be reachable and attributable.

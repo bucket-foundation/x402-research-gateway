@@ -376,6 +376,9 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 	// an API and downloading a snapshot must not itself cost anything.
 	if cfg.Feed402.Enabled && cfg.Feed402.SyncDiscovery.Enabled {
 		h.router.Get(cfg.Feed402.SyncDiscovery.Path, h.handleSyncDiscovery)
+		// Coverage and gap reporting, from the same registry. Knowing what
+		// a gateway does not cover must not cost anything either.
+		h.router.Get(cfg.Feed402.SyncDiscovery.CoveragePath, h.handleCoverage)
 	}
 
 	// feed402 discovery manifest (free) — only mounted when enabled.

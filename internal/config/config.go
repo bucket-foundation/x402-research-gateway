@@ -109,6 +109,9 @@ type SyncDiscoveryConfig struct {
 	// RegistryPath is the provider registry the listing reads. Default
 	// config/providers.yaml.
 	RegistryPath string `yaml:"registryPath"`
+	// CoveragePath serves the coverage and gap report derived from the same
+	// registry (x402-research-gateway#20). Default /research/coverage.
+	CoveragePath string `yaml:"coveragePath"`
 }
 
 // HarvestConfig configures the resumable harvest endpoint.
@@ -476,6 +479,9 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.SyncDiscovery.RegistryPath == "" {
 				cfg.Feed402.SyncDiscovery.RegistryPath = "config/providers.yaml"
+			}
+			if cfg.Feed402.SyncDiscovery.CoveragePath == "" {
+				cfg.Feed402.SyncDiscovery.CoveragePath = "/research/coverage"
 			}
 		}
 		if cfg.Feed402.Harvest.Enabled {

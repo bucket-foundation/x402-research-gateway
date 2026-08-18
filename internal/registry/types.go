@@ -356,6 +356,22 @@ type Provider struct {
 	HistoricalSuccessor   string `yaml:"historical_successor,omitempty" json:"historical_successor,omitempty"`
 	HistoricalPredecessor string `yaml:"historical_predecessor,omitempty" json:"historical_predecessor,omitempty"`
 
+	// HistoricalFrom is the earliest publication year this source reaches,
+	// and HistoricalTo the latest where a source stopped
+	// (x402-research-gateway#20). Zero means unrecorded, which is a gap in
+	// this registry rather than a shallow source: a provider covering 1996
+	// onward leaves a century of literature unreachable, and a source
+	// reaching the 1800s is a different capability entirely.
+	HistoricalFrom int `yaml:"historical_from,omitempty" json:"historical_from,omitempty"`
+	HistoricalTo   int `yaml:"historical_to,omitempty" json:"historical_to,omitempty"`
+	// Languages are the languages this source indexes, as BCP-47 primary
+	// subtags. Empty means unrecorded, never "English only."
+	Languages []string `yaml:"languages,omitempty" json:"languages,omitempty"`
+	// CoverageDepthNote qualifies HistoricalFrom where the number is a
+	// floor rather than a measured minimum, so a consumer does not read a
+	// hint as a boundary.
+	CoverageDepthNote string `yaml:"coverage_depth_note,omitempty" json:"coverage_depth_note,omitempty"`
+
 	// CorpusSize is prose, because upstreams report it inconsistently.
 	CorpusSize string `yaml:"corpus_size,omitempty" json:"corpus_size,omitempty"`
 	// TierFit records which feed402 tiers suit the source.
@@ -393,6 +409,10 @@ func (p Provider) Validate() []error {
 		errs = append(errs, fmt.Errorf("%s: excluded providers must retain a research note", p.ProviderID))
 	}
 
+	if p.HistoricalTo != 0 && p.HistoricalFrom != 0 && p.HistoricalTo < p.HistoricalFrom {
+		errs = append(errs, fmt.Errorf("%s: historical_to %d precedes historical_from %d",
+			p.ProviderID, p.HistoricalTo, p.HistoricalFrom))
+	}
 	for _, m := range p.Sync.Modes {
 		if !m.Valid() {
 			errs = append(errs, fmt.Errorf("%s: unknown sync mode %q", p.ProviderID, m))

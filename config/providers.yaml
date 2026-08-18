@@ -72,6 +72,9 @@ providers:
           notes: "Download costs fall on the requester. The gateway describes this channel and never proxies it."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1991
+    languages:
+      - en
     notes: "Atom XML, parsed by the adapter's atom-style Normalizer; the declarative proxy path cannot express it. Versions are distinct objects and stay separately addressable: the record id keeps its vN suffix. A submission's arxiv:doi becomes a provider-asserted preprint_of relation feeding preprint-to-published identity resolution. Subject classification is preserved with its scheme. OAI-PMH incremental harvest is open; the full-text bulk sets are requester-pays object storage this gateway does not access, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "zbmath-open-rest"
@@ -119,6 +122,14 @@ providers:
       cursor_semantics: "Resumption tokens page the set and expire. Review text stays outside the open subset, so a complete harvest of the open subset is not a complete harvest of zbMATH."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1868
+    languages:
+      - en
+      - de
+      - fr
+      - ru
+      - it
+    coverage_depth_note: "Reviews reach back to the Jahrbuch corpus of the late nineteenth century."
     notes: "MSC classification codes are preserved with their scheme (e.g. msc2020) rather than normalized to one edition, since the same numeric code names a different subject across the 2000/2010/2020 revisions. Reviews (editorial_contributions) are preserved as a distinct field from the bibliographic record, each carrying its own reviewer sign and contribution type, never folded into asset discovery or treated as redistributable under the record's rights. An OAI-PMH endpoint at oai.zbmath.org/v1/ answered Identify unauthenticated during verification, so incremental_updates is true; no full-corpus bulk export for unauthenticated use was found, so bulk_access is false. Open since 2021 (post-zbMATH-classic). Verified live against api.zbmath.org and oai.zbmath.org 2026-08-17."
 
   - provider_id: "oeis"
@@ -627,6 +638,10 @@ providers:
           notes: "One document rather than a partitioned set, so a client takes all of it or none."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1936
+    languages:
+      - en
+    coverage_depth_note: "The earliest indexed publications predate computing as a discipline, via cited proceedings."
     notes: "Publication search and author search are both JSON via dblp.org/search/{publ,author}/api. Author search is DBLP's own disambiguation: two people sharing a name return two hits under two distinct DBLP person ids (pid), never merged. Single-record fetch has no JSON representation (/rec/{key}.json 404s); the adapter parses the XML representation at /rec/{key}.xml, which DBLP declares as US-ASCII, a strict subset of UTF-8 the adapter's decoder passes through rather than transcoding. The full dataset is published as CC0 XML at dblp.org/xml/, rebuilt on every site rebuild rather than on a fixed cadence, so bulk_access is true and incremental_updates is false (no delta feed). Verified live against dblp.org 2026-08-17."
 
   - provider_id: "papers-with-code"
@@ -767,6 +782,13 @@ providers:
             notes: "A dataset release carries full text whose licences vary per record, and several grant no redistribution at all."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1900
+    languages:
+      - en
+      - de
+      - es
+      - pt
+      - fr
     notes: "OA full-text search — major asset for insight tier. Adapter implemented in x402-research-gateway#8 (internal/provider/core.go). Operational only where the operator supplies CORE_API_KEY; the gateway holds no key of its own. Location discovery only: the gateway never fetches, mirrors, or re-serves CORE-hosted content."
 
   - provider_id: "openreview"
@@ -903,6 +925,9 @@ providers:
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     bulk_access: true
     incremental_updates: true
+    historical_from: 1966
+    languages:
+      - en
     notes: "Keep. Parser = `pubmed-style`."
 
   - provider_id: "europe-pmc"
@@ -967,6 +992,9 @@ providers:
             notes: "The OA subset downloads without authentication. Redistribution terms are per record, and several records in it are free to read while granting no redistribution."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1966
+    languages:
+      - en
     notes: "No API key. Full text for the open-access subset is served as JATS XML at /{source}/{id}/fullTextXML; the gateway surfaces the address of the structured document rather than flattening it, because the structure is the reason to want it. References and citations at /{source}/{id}/references and /citations. Preprint and correction relations come from commentCorrectionList. Verified 2026-08-17."
 
   - provider_id: "biorxiv-medrxiv"
@@ -1178,6 +1206,9 @@ providers:
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     bulk_access: true
     incremental_updates: true
+    historical_from: 1999
+    languages:
+      - en
     notes: "Keep. V1 deprecated 2024-06; ensure using v2."
 
   - provider_id: "pubmed-central"
@@ -1969,6 +2000,17 @@ providers:
             notes: "The dump is a paid Metadata Plus product with its own terms. The gateway holds no subscription, so this snapshot is described and never exercised."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1700
+    languages:
+      - en
+      - de
+      - fr
+      - es
+      - pt
+      - zh
+      - ja
+      - ru
+    coverage_depth_note: "The earliest deposited works predate 1800; 1700 is a floor rather than a measured minimum, and the field is a coverage hint, not a claim about the oldest record."
     notes: "Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly; an absent list is a publisher that did not deposit, never evidence a work has no references. Crossmark update relations come from `update-to` and `updated-by`. Bulk: whole-corpus monthly dumps are the paid Metadata Plus tier, so bulk_access is false for this gateway; incremental harvest via `from-index-date` plus cursor paging is open. Verified 2026-08-17."
 
   - provider_id: "datacite"
@@ -2018,6 +2060,9 @@ providers:
       cursor_semantics: "page[cursor] resumes exactly and is the documented path past the offset limit."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 2011
+    languages:
+      - en
     notes: "Dataset and software DOIs, the complement to Crossref. JSON:API shape: data[].attributes. resourceTypeGeneral is preserved because a dataset, a piece of software, and a text are different objects. relatedIdentifiers are surfaced with DataCite's own relationType term preserved beside any normalized term; terms the identity vocabulary has no word for keep the provider's term and gain no normalized one. Rate limit not published as a number on 2026-08-17, recorded as unverified. Verified 2026-08-17."
 
   - provider_id: "openalex"
@@ -2064,6 +2109,17 @@ providers:
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     bulk_access: true
     incremental_updates: true
+    historical_from: 1700
+    languages:
+      - en
+      - de
+      - fr
+      - es
+      - pt
+      - zh
+      - ja
+      - ru
+    coverage_depth_note: "Same floor as Crossref, from which much of the corpus is derived."
     notes: "Keep. MAG successor. Parser = `openalex-style`."
 
   - provider_id: "base"
@@ -2130,6 +2186,10 @@ providers:
             notes: "The snapshot and the change feed are a paid product under their own terms. The gateway holds no subscription, so neither is exercised and neither is proxied."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    historical_from: 1700
+    languages:
+      - en
+    coverage_depth_note: "Coverage follows the DOI record set, so it inherits Crossref's floor."
     notes: "DOI-only lookup, no search endpoint, so the adapter implements Fetcher and not Searcher. Each oa_locations entry becomes a distinct Asset with its own URL, host type, version, and per-location rights. availability distinguishes retrievable (an OA location exists), restricted (is_oa true but no location published, an inconsistency surfaced rather than hidden), and absent (not open access). The email parameter is a route-level query parameter the operator sets; Unpaywall's response never echoes it, so it cannot leak into a fingerprint, cursor, or citation. Bulk snapshot and data-feed products exist under separate commercial terms this gateway does not subscribe to, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "openaire-graph"
@@ -2264,6 +2324,8 @@ providers:
             notes: "ROR publishes its data dumps under CC0 through Zenodo, which supplies each archive's checksum."
       verified: false
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    languages:
+      - en
     notes: "v2 schema (v1 deprecated). External identifiers (GRID, ISNI, Wikidata, FundRef) are preserved verbatim rather than folded into the identity graph's own scheme registry. Name variants (display, acronym, alias, per-language label) are preserved rather than reduced to one string. Relationships (parent, child, successor, predecessor, related) become typed identity relations with the direction inverted to match ROR's far-side-labeled convention. status (active/inactive/withdrawn) is preserved so a superseded record stays distinguishable from a live one. Versioned bulk data dumps are published to data.ror.org / Zenodo on a periodic (not scheduled) cadence; this adapter does not fetch them, so bulk_access is false. Verified live against api.ror.org 2026-08-17."
 
   - provider_id: "wikidata"
@@ -2386,6 +2448,10 @@ providers:
     route_ids:
       - opencitations-references
       - opencitations-cited-by
+    historical_from: 1700
+    languages:
+      - en
+    coverage_depth_note: "Coverage follows the deposited reference set rather than a publication window."
     notes: "Citation relations as data. Index v2 at api.opencitations.net supersedes the COCI v1 path, and the per-source indexes (COCI over Crossref, DOCI over DataCite, POCI over PubMed) are served through the one unified Index. Identifiers take a scheme prefix (doi:, pmid:, omid:). Edge fields: oci, citing, cited, creation, timespan, journal_sc, author_sc, all preserved on the edge. Bulk dumps of Index (2.5B+ citations, released 2026-07-28) and Meta (147M+ entities, released 2026-06-27) are published to Zenodo, Figshare, and the Internet Archive; cadence is periodic rather than scheduled. Coverage depends on publishers depositing open references and is uneven by publisher, discipline, and era, so an empty answer is this collection having no edge on record. Verified 2026-08-17."
 
   - provider_id: "scite-ai"
@@ -2484,6 +2550,9 @@ providers:
       unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     bulk_access: true
     incremental_updates: true
+    historical_from: 1900
+    languages:
+      - en
     notes: "Keep. TLDRs useful in insight tier. Citation endpoints /graph/v1/paper/{id}/references and /citations, verified 2026-08-17."
 
   - provider_id: "sci-hub"

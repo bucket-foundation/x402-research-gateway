@@ -70,6 +70,7 @@ var normalizerContracts = []struct {
 	{"doaj/fetch", DOAJNormalizer{}, doajSingleFixture, 1, false},
 	{"openaire/search", OpenAIRENormalizer{}, openaireSearchFixture, 1, false},
 	{"openaire/fetch", OpenAIRENormalizer{}, openaireSingleFixture, 1, false},
+	{"biorxiv/listing", BioRxivNormalizer{}, biorxivFixture, 1, false},
 }
 
 func TestNormalizerContracts(t *testing.T) {
@@ -114,6 +115,7 @@ func TestNormalizerContracts_CoverEveryRegisteredNormalizer(t *testing.T) {
 		"dblp/record-xml", "orcid/record", "orcid/search", "unpaywall/doi",
 		"ror/search", "zbmath/search", "zenodo/search",
 		"doaj/search", "doaj/fetch", "openaire/search", "openaire/fetch",
+		"biorxiv/listing",
 	}
 	for _, w := range want {
 		if !registered[w] {

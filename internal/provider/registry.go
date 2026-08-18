@@ -100,5 +100,14 @@ func DefaultRegistry() Registry {
 		// credential-free, per-instance rights read rather than assumed.
 		OpenAIRESearchAdapter.ID: OpenAIRESearchAdapter,
 		OpenAIREFetchAdapter.ID:  OpenAIREFetchAdapter,
+
+		// bioRxiv / medRxiv (x402-research-gateway#13, Wave 2): a shared
+		// API with no keyword search, only date-interval listing and DOI
+		// lookup, plus the preprint-to-published-work relation the
+		// declarative path cannot express.
+		BioRxivSearchAdapter.ID: BioRxivSearchAdapter,
+		BioRxivFetchAdapter.ID:  BioRxivFetchAdapter,
+		MedRxivSearchAdapter.ID: MedRxivSearchAdapter,
+		MedRxivFetchAdapter.ID:  MedRxivFetchAdapter,
 	}
 }

@@ -24,9 +24,9 @@
 | Lifecycle status | Sources |
 |---|---|
 | `discovered` | 8 |
-| `researched` | 86 |
+| `researched` | 85 |
 | `registered` | 9 |
-| `implemented` | 16 |
+| `implemented` | 17 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -157,7 +157,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **PubMed (NCBI E-utilities)** | `production` | `scholarly_metadata` | Biomed literature | ~37M | `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi` | email-header polite; api-key optional (10/s) | 3/s no key, 10/s key | US-gov public domain (meta) | `allowed` | raw, query | `pubmed` | `https://pubmed.ncbi.nlm.nih.gov/{pmid}/` | — | Keep. Parser = `pubmed-style`. |
 | **Europe PMC** | `implemented` | `full_text_repository` | PubMed + preprints + Agricola + patents | ~43M (2026) | `https://www.ebi.ac.uk/europepmc/webservices/rest` | none | around 30 requests per minute per the published guidance | mixed (per-record) | `unknown` | raw, query | `epmc` | `https://europepmc.org/article/{src}/{id}` | 2026-08-17 | No API key. Full text for the open-access subset is served as JATS XML at /{source}/{id}/fullTextXML; the gateway surfaces the address of the structured document rather than flattening it, because the structure is the reason to want it. References and citations at /{source}/{id}/references and /citations. Preprint and correction relations come from commentCorrectionList. Verified 2026-08-17. |
-| **bioRxiv / medRxiv** | `researched` | `preprint_repository` | Life-sci preprints | ~400k (bioRxiv) + ~60k (medRxiv) | `https://api.biorxiv.org/details/biorxiv/{doi}` | none | polite | CC-BY (most) | `allowed` | raw, query | `biorxiv / medrxiv` | `https://www.biorxiv.org/content/{doi}` | — | Covers both with same API shape. Endpoints/format: /pubs/biorxiv/{interval} |
+| **bioRxiv / medRxiv** | `implemented` | `preprint_repository` | Life-sci preprints. No keyword-search endpoint; the API is a date-interval listing (cursor-paged) plus DOI lookup returning a preprint's full version history. published_doi (the provider's `published` field) carries the preprint-to-published-work relation once one exists, exposed through IdentityProvider.AssertedRelations. | ~400k (bioRxiv) + ~60k (medRxiv) | `https://api.biorxiv.org/details/{server}` | none | polite; no numeric ceiling published | per-record (author-chosen at submission, e.g. cc_by, cc_no); unknown until read per record | `unknown` | raw, query | `biorxiv / medrxiv` | `https://doi.org/{doi}` | 2026-08-18 | internal/provider/biorxiv.go's BioRxivNormalizer and shared biorxivIdentity cover both servers via {server}=biorxiv\|medrxiv on the same api.biorxiv.org API. Adapter IDs biorxiv-search, biorxiv-fetch, medrxiv-search, medrxiv-fetch are registered in internal/provider/registry.go; no config/routes.yaml entry exists yet, so none serves traffic (status implemented, not production). A preprint with several versions yields one record per version rather than a single merged record. x402-research-gateway#13. |
 | **UniProt** | `researched` | `biological_database` | Protein sequences + annotation | ~250M entries | `https://rest.uniprot.org/uniprotkb/search?query=...&format=json` | none | polite | CC-BY | `allowed` | raw (`/{accession}`), query | `uniprot` | `https://www.uniprot.org/uniprotkb/{id}/entry` | — | Massive, well-versioned REST. |
 | **Ensembl REST** | `researched` | `biological_database` | Genomes, variants, comparative genomics | — | `https://rest.ensembl.org/` | none | 15/s | Apache-2 | `unknown` | raw, query | `ensembl` | `https://www.ensembl.org/{species}/Gene/Summary?g={id}` | — | Species-parametric. |
 | **NCBI GEO (Gene Expression Omnibus)** | `researched` | `dataset_repository` | Gene-expression datasets | ~200k series | `E-utilities db=gds` | email-header | 3/10/s | US-gov PD | `unknown` | raw, query | `geo` | `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={gse}` | — | Reuse pubmed parser with different `db`. |

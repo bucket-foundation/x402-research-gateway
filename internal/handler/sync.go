@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gianyrox/x402-research-gateway/internal/coverage"
 	"github.com/gianyrox/x402-research-gateway/internal/registry"
 )
 
@@ -49,6 +50,41 @@ type syncProviderView struct {
 	// conservative about a channel this deployment cannot exercise.
 	AdapterBulk        *bool `json:"adapter_bulk,omitempty"`
 	AdapterIncremental *bool `json:"adapter_incremental,omitempty"`
+}
+
+// CoverageNotFoundNotice is served when no registry is loaded, so an empty
+// coverage answer never reads as "this gateway covers nothing."
+const CoverageNotFoundNotice = "no provider registry is loaded on this deployment, so no coverage report can be derived"
+
+// handleCoverage serves the free coverage and gap report
+// (x402-research-gateway#20). It is derived from the registry on every call
+// rather than maintained beside it, so it cannot drift from the data.
+func (h *Handler) handleCoverage(w http.ResponseWriter, r *http.Request) {
+	if h.registry == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error": CoverageNotFoundNotice,
+		})
+		return
+	}
+	report := coverage.Build(h.registry)
+	if field := strings.TrimSpace(r.URL.Query().Get("field")); field != "" {
+		filtered := []coverage.FieldCoverage{}
+		for _, fc := range report.Fields {
+			if fc.Field == field {
+				filtered = append(filtered, fc)
+			}
+		}
+		if len(filtered) == 0 {
+			writeJSON(w, http.StatusNotFound, map[string]any{
+				"error":  "no provider in the registry is filed under this field",
+				"field":  field,
+				"notice": coverage.Notice,
+			})
+			return
+		}
+		report.Fields = filtered
+	}
+	writeJSON(w, http.StatusOK, report)
 }
 
 // handleSyncDiscovery serves the free sync-capability listing.

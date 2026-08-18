@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/coverage"
 	"github.com/gianyrox/x402-research-gateway/internal/registry"
 )
 
@@ -147,5 +148,60 @@ func TestSyncDiscovery_AdapterCapabilityReportedBesideRegistry(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("arxiv registry modes = %v", modes)
+	}
+}
+
+func TestCoverageReport_ServedFromTheRegistry(t *testing.T) {
+	h := syncTestHandler(t)
+	rec := httptest.NewRecorder()
+	h.handleCoverage(rec, httptest.NewRequest("GET", "/research/coverage", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	fields, _ := out["fields"].([]any)
+	if len(fields) < 5 {
+		t.Fatalf("only %d fields reported", len(fields))
+	}
+	if !strings.Contains(out["notice"].(string), "never the underlying science") {
+		t.Fatalf("notice = %q", out["notice"])
+	}
+	// Every field carries every dimension, gaps included.
+	first := fields[0].(map[string]any)
+	dims := first["dimensions"].([]any)
+	if len(dims) != len(coverage.Dimensions) {
+		t.Fatalf("%v reports %d dimensions", first["field"], len(dims))
+	}
+}
+
+func TestCoverageReport_FilterByField(t *testing.T) {
+	h := syncTestHandler(t)
+	rec := httptest.NewRecorder()
+	h.handleCoverage(rec, httptest.NewRequest("GET", "/research/coverage?field=mathematics", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var out map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if len(out["fields"].([]any)) != 1 {
+		t.Fatalf("field filter returned %d fields", len(out["fields"].([]any)))
+	}
+
+	missing := httptest.NewRecorder()
+	h.handleCoverage(missing, httptest.NewRequest("GET", "/research/coverage?field=phrenology", nil))
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("status = %d for an unknown field", missing.Code)
+	}
+}
+
+func TestCoverageReport_NoRegistryIsReportedNotEmpty(t *testing.T) {
+	h := newTestHandler(testCfg())
+	rec := httptest.NewRecorder()
+	h.handleCoverage(rec, httptest.NewRequest("GET", "/research/coverage", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d; an absent registry must not read as no coverage", rec.Code)
 	}
 }

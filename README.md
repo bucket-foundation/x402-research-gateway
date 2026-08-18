@@ -42,6 +42,7 @@ field-by-field migration and deprecation window.
 | `/research/integrity` | Corrections, retractions, withdrawals, and versions per provider | query |
 | `/research/harvest` | One page of a resumable harvest, with a signed cursor | query |
 | `/research/sync` | Bulk and incremental capability per provider, free GET | free |
+| `/research/coverage` | Coverage and gap report per field and dimension, free GET | free |
 | `/research/core/search` | CORE open-access aggregator search | query |
 | `/research/core/fetch` | CORE work record | raw |
 

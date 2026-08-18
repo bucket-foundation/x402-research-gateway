@@ -115,6 +115,7 @@ feed402:
     enabled: true
     path: /research/sync
     registryPath: config/providers.yaml
+    coveragePath: /research/coverage
 
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---

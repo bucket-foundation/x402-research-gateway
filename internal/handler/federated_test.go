@@ -68,6 +68,14 @@ const fedS2Body = `{"data":[
  {"paperId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","externalIds":{"DOI":"10.7717/peerj.4375"}},
  {"paperId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","externalIds":{}}]}`
 
+// fedOpenAlexBodyWithTitle carries the bibliographic fields OpenAlex's own
+// Descriptor implementation reads, so a test can prove the federated
+// result surface copies them rather than leaving a caller to reparse Raw.
+const fedOpenAlexBodyWithTitle = `{"results":[
+ {"id":"https://openalex.org/W1","ids":{"openalex":"https://openalex.org/W1"},
+  "title":"Spectral inverse problems in photosynthetic systems","publication_year":2019,
+  "authorships":[{"author":{"display_name":"Ada Lovelace"}},{"author":{"display_name":"Grace Hopper"}}]}]}`
+
 func TestFanOutFederated_ProvenanceSurvivesTheMerge(t *testing.T) {
 	h := federatedTestHandler(t, serve(t, 200, fedOpenAlexBody).URL, serve(t, 200, fedS2Body).URL)
 	selected := []string{"openalex-works", "semantic-scholar-search"}
@@ -378,5 +386,160 @@ func TestFederated_SingleProviderRoutesUnchanged(t *testing.T) {
 	hits := h.hitsForRoute("openalex-works", []byte(fedOpenAlexBody))
 	if len(hits) != 3 || hits[0].SourceID != "openalex:W1" || hits[0].Rank != 1 {
 		t.Errorf("single-provider hit extraction changed: %+v", hits)
+	}
+}
+
+// A federated result copies Title/Authors/Year from the adapter's
+// DescriptorProvider when the adapter implements one, so a caller gets a
+// usable bibliographic surface without reparsing provider-specific Raw.
+func TestFederatedFromProvider_DescriptorProviderPopulatesTitleAuthorsYear(t *testing.T) {
+	h := federatedTestHandler(t, serve(t, 200, fedOpenAlexBodyWithTitle).URL, serve(t, 200, fedS2Body).URL)
+	fan := h.federatedFromProvider(context.Background(), "openalex-works", "photosynthesis")
+	if fan.report.Outcome != federate.OutcomeOK {
+		t.Fatalf("provider call failed: %+v", fan.report)
+	}
+	if len(fan.results) != 1 {
+		t.Fatalf("got %d results, want 1", len(fan.results))
+	}
+	got := fan.results[0]
+	if got.Title != "Spectral inverse problems in photosynthetic systems" {
+		t.Errorf("Title = %q", got.Title)
+	}
+	if got.Year != 2019 {
+		t.Errorf("Year = %d, want 2019", got.Year)
+	}
+	if len(got.Authors) != 2 || got.Authors[0] != "Ada Lovelace" || got.Authors[1] != "Grace Hopper" {
+		t.Errorf("Authors = %v", got.Authors)
+	}
+	// Raw stays intact for provenance/debugging alongside the normalized
+	// fields, never replaced by them.
+	if len(got.Raw) == 0 {
+		t.Error("Raw must survive alongside the copied descriptor fields")
+	}
+}
+
+// A record from a provider whose adapter has no DescriptorProvider must
+// come back with no title/authors/year rather than an invented one.
+func TestFederatedFromProvider_NoDescriptorProviderOmitsMetadata(t *testing.T) {
+	cfg := &config.GatewayConfig{
+		Routes: []config.RouteConfig{{
+			ID: "pubmed-search", Path: "/research/pubmed/search", Method: "GET",
+			Price: "0.001", Feed402Tier: "query",
+			Citation: config.RouteCitation{SourcePrefix: "pubmed"},
+			Upstream: config.UpstreamConfig{PassThrough: []string{"term"}, Timeout: 5},
+		}},
+	}
+	h := newTestHandler(cfg)
+	upstream := serve(t, 200, `{"esearchresult":{"idlist":["38831607"]}}`)
+	h.cfg.Routes[0].Upstream.BaseURL = upstream.URL
+	h.httpClient = &http.Client{Timeout: 5 * time.Second}
+
+	fan := h.federatedFromProvider(context.Background(), "pubmed-search", "mitochondria")
+	if fan.report.Outcome != federate.OutcomeOK || len(fan.results) != 1 {
+		t.Fatalf("provider call failed: %+v %+v", fan.report, fan.results)
+	}
+	got := fan.results[0]
+	if got.Title != "" || got.Year != 0 || got.Authors != nil {
+		t.Errorf("a descriptor-less provider must not invent metadata, got %+v", got)
+	}
+}
+
+// A `limit` posted as JSON caps the merged result count.
+func TestHandleFederated_JSONLimitCapsResults(t *testing.T) {
+	h := federatedTestHandler(t, serve(t, 200, fedOpenAlexBody).URL, serve(t, 200, fedS2Body).URL)
+	selected := []string{"openalex-works", "semantic-scholar-search"}
+	results, reports := h.fanOutFederated(context.Background(), selected, "photosynthesis")
+	resp := federate.Merge("photosynthesis", "search", results, reports,
+		federate.Estimate("search", h.federatedPrices(selected), 0), time.Now())
+	if len(resp.Results) != 5 {
+		t.Fatalf("fixture setup: got %d results, want 5", len(resp.Results))
+	}
+
+	req := h.parseFederatedRequest(httptest.NewRequest("POST", "/research/federated",
+		strings.NewReader(`{"query":"photosynthesis","limit":3}`)))
+	if req.Limit != 3 {
+		t.Fatalf("parsed limit = %d, want 3", req.Limit)
+	}
+	limited := resp.Truncate(req.Limit)
+	if len(limited.Results) != 3 {
+		t.Fatalf("Hits after limiting = %d, want 3", len(limited.Results))
+	}
+	// Limiting must not touch reports or cost.
+	if len(limited.Providers) != len(resp.Providers) {
+		t.Errorf("provider reports changed under a limit: %v vs %v", limited.Providers, resp.Providers)
+	}
+	if limited.Cost.TotalUSD != resp.Cost.TotalUSD {
+		t.Errorf("cost changed under a limit: %v vs %v", limited.Cost, resp.Cost)
+	}
+
+	// Citations built from the limited response only reference kept indices.
+	cits := h.federatedCitations(h.findRouteByID("feed402-federated"), limited)
+	for _, c := range cits {
+		for _, idx := range c.ResultIndex {
+			if idx >= len(limited.Results) {
+				t.Fatalf("citation result_index %d outside %d returned results", idx, len(limited.Results))
+			}
+		}
+	}
+}
+
+// The `?limit=N` query parameter works identically to the JSON field.
+func TestParseFederatedRequest_LimitFromQueryString(t *testing.T) {
+	h := federatedTestHandler(t, "http://127.0.0.1:1", "http://127.0.0.1:1")
+	req := h.parseFederatedRequest(httptest.NewRequest("GET", "/research/federated?query=x&limit=3", nil))
+	if req.Limit != 3 {
+		t.Errorf("limit from query string = %d, want 3", req.Limit)
+	}
+}
+
+// limit=0 (or an absent limit) preserves the pre-existing unlimited
+// behavior: Truncate is a no-op and every merged result comes back.
+func TestHandleFederated_LimitZeroPreservesExistingBehavior(t *testing.T) {
+	h := federatedTestHandler(t, serve(t, 200, fedOpenAlexBody).URL, serve(t, 200, fedS2Body).URL)
+	selected := []string{"openalex-works", "semantic-scholar-search"}
+	results, reports := h.fanOutFederated(context.Background(), selected, "photosynthesis")
+	resp := federate.Merge("photosynthesis", "search", results, reports,
+		federate.Estimate("search", h.federatedPrices(selected), 0), time.Now())
+
+	for _, req := range []string{
+		`{"query":"photosynthesis"}`,
+		`{"query":"photosynthesis","limit":0}`,
+	} {
+		parsed := h.parseFederatedRequest(httptest.NewRequest("POST", "/research/federated", strings.NewReader(req)))
+		if parsed.Limit != 0 {
+			t.Fatalf("%s: parsed limit = %d, want 0", req, parsed.Limit)
+		}
+		got := resp
+		if parsed.Limit > 0 {
+			got = resp.Truncate(parsed.Limit)
+		}
+		if len(got.Results) != len(resp.Results) {
+			t.Errorf("%s: limit=0 truncated results, got %d want %d", req, len(got.Results), len(resp.Results))
+		}
+	}
+}
+
+// A negative limit is rejected by the same validation gate handleFederated
+// calls before it does any provider fan-out or truncation. Driving the
+// full paid handler needs a real x402 payment signature, so this exercises
+// the guard directly, the way TestHandleFederatedEstimate_FreeAndPrePayment
+// exercises the free path directly.
+func TestFederatedRequest_ValidateRejectsNegativeLimit(t *testing.T) {
+	h := federatedTestHandler(t, "http://127.0.0.1:1", "http://127.0.0.1:1")
+
+	req := h.parseFederatedRequest(httptest.NewRequest("POST", "/research/federated?limit=-1",
+		strings.NewReader(`{"query":"photosynthesis"}`)))
+	if req.Limit != -1 {
+		t.Fatalf("parsed limit = %d, want -1", req.Limit)
+	}
+	if msg := req.validate(); msg == "" {
+		t.Fatal("a negative limit must fail validate()")
+	}
+
+	// A non-negative limit alongside a non-empty query must pass.
+	ok := h.parseFederatedRequest(httptest.NewRequest("POST", "/research/federated",
+		strings.NewReader(`{"query":"photosynthesis","limit":3}`)))
+	if msg := ok.validate(); msg != "" {
+		t.Fatalf("a valid request must not fail validate(), got %q", msg)
 	}
 }

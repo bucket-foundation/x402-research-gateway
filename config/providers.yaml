@@ -1864,21 +1864,34 @@ providers:
   - provider_id: "unpaywall"
     name: "Unpaywall"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "OA version lookup for any DOI"
-    base_url: "https://api.unpaywall.org/v2/{doi}?email=..."
+    coverage: "Open-access location lookup for any Crossref DOI, over 120 million articles"
+    base_url: "https://api.unpaywall.org/v2"
     source_prefix: "unpaywall"
+    canonical_url: "https://doi.org/{doi}"
     tier_fit: "raw"
-    auth: "email-param"
-    rate_limit: "100k/day"
-    license: "CC0"
+    auth: "email query parameter identifying the caller, a courtesy header their terms request; no API key"
+    rate_limit: "100,000 requests per day, the published guidance"
+    license: "per location; oa_status is a coverage classification (gold/hybrid/bronze/green), not a licence"
     rights:
-      metadata_license: "CC0"
-      redistribution: allowed
-    notes: "Resolver; returns best OA URL. Essential companion."
+      metadata_license: "unknown at the record level; oa_status is not a licence"
+      redistribution: unknown
+      verified_on: "2026-08-17"
+      notes: "A bronze open-access location is readable without being redistributable. Unpaywall reports what each location states and grants nothing on its own; only a location's own license field becomes a redistribution grant on that asset, and an absent license reports unknown even for the best OA location. Corrected from a prior entry that mismarked the whole provider CC0/allowed at the record level, which the per-location license field contradicts on inspection."
+    identifier_schemes:
+      - doi
+    pagination: "none; one DOI per request, no search endpoint"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-17"
+    route_ids:
+      - unpaywall-fetch
+    notes: "DOI-only lookup, no search endpoint, so the adapter implements Fetcher and not Searcher. Each oa_locations entry becomes a distinct Asset with its own URL, host type, version, and per-location rights. availability distinguishes retrievable (an OA location exists), restricted (is_oa true but no location published, an inconsistency surfaced rather than hidden), and absent (not open access). The email parameter is a route-level query parameter the operator sets; Unpaywall's response never echoes it, so it cannot leak into a fingerprint, cursor, or citation. Bulk snapshot and data-feed products exist under separate commercial terms this gateway does not subscribe to, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "openaire-graph"
     name: "OpenAIRE Graph"

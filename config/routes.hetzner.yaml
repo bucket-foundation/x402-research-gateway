@@ -580,8 +580,32 @@ routes:
       license: CC0
     upstream:
       baseUrl: https://api.ror.org
-      path: /v2/organizations
+      pathTemplate: /v2/organizations/{id}
       headers:
         User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20
+
+  # --- Unpaywall (x402-research-gateway#28) ---
+  # email is a caller-identifying courtesy parameter Unpaywall's terms
+  # require, not a secret. No API key. DOI-only lookup, no search.
+  - id: unpaywall-fetch
+    path: /research/unpaywall/fetch
+    method: GET
+    description: "Unpaywall open-access location lookup by DOI."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: unpaywall
+      providerUrl: https://unpaywall.org/
+      license: per-location
+    upstream:
+      baseUrl: https://api.unpaywall.org
+      pathTemplate: /v2/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        email: research@viatika.ai
       passThrough: [id]
       timeoutSeconds: 20

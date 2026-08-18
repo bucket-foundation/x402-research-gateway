@@ -70,6 +70,10 @@ const (
 	// for "the update and integrity notices a provider publishes about a
 	// work" (x402-research-gateway#9).
 	CapIntegrity Capability = "integrity"
+	// CapMultilingual is a fourth extension capability: the spec has no
+	// name for "the language, script, and translated/transliterated form
+	// metadata a provider publishes" (x402-research-gateway#21).
+	CapMultilingual Capability = "multilingual"
 )
 
 // NormalizedRecord is one upstream result, decoupled from any particular
@@ -324,6 +328,87 @@ type DescriptorProvider interface {
 	Descriptor(record NormalizedRecord) Descriptor
 }
 
+// FormKind names what relation a LocalizedForm has to the record's primary
+// title (x402-research-gateway#21). The three are different facts: a title
+// in the record's own original script is not a variant of any other form,
+// a translated title is a provider's own rendering into another language,
+// and a transliterated title is that same original-language title
+// re-rendered into a different script (Cyrillic to Latin, for instance)
+// without changing the language it names. Collapsing them loses exactly
+// the distinction #21 exists to preserve.
+type FormKind string
+
+const (
+	FormOriginal       FormKind = "original"
+	FormTranslated     FormKind = "translated"
+	FormTransliterated FormKind = "transliterated"
+	// FormSynonym is a multilingual alternative label a vocabulary source
+	// publishes for a concept (AGROVOC, MeSH, Getty), distinct from a
+	// translated title of a bibliographic work.
+	FormSynonym FormKind = "synonym"
+)
+
+// LocalizedForm is one language- and script-tagged string a provider
+// published, with which of the three (original/translated/transliterated/
+// synonym) relations it stands in to the record. Provider names who
+// asserted this form: for a record's own fields this is the record's own
+// provider, and it is carried explicitly rather than assumed so a form a
+// downstream aggregator merged in from elsewhere is never misread as the
+// origin source's own assertion (x402-research-gateway#21's "no machine
+// translation" and "marked as provider-published" requirements).
+type LocalizedForm struct {
+	Value string
+	// Language is a BCP-47 primary subtag where the provider states one.
+	// Empty means the provider did not publish a language for this form,
+	// never "English."
+	Language string
+	// Script is recorded separately from Language (x402-research-gateway#21
+	// acceptance criterion): a transliterated form and its original share a
+	// Language but differ in Script, and collapsing the two into one field
+	// would lose that distinction. An ISO 15924 code where the provider
+	// states one; empty otherwise.
+	Script string
+	Kind   FormKind
+	// Provider names who asserted this form, verbatim.
+	Provider string
+}
+
+// Multilingual is the language/script surface a record or concept carries
+// beyond its single primary title/label, additive to Descriptor and Concept
+// rather than replacing either (x402-research-gateway#21). There is no
+// canonical-English field here by design: Language records the record's own
+// language as the provider states it, never a gateway-assigned default, and
+// a record with no multilingual data reports a zero value rather than an
+// invented English designation.
+type Multilingual struct {
+	// Language is the record's own primary language, in the provider's own
+	// terms (verbatim tag, not forced through a validator), when the
+	// provider states one.
+	Language string
+	// OriginalLanguage is recorded separately from Language for a provider
+	// that distinguishes the two: a translated work's OriginalLanguage
+	// names what it was written in, while Language may name the language
+	// of this particular representation. Empty when the provider does not
+	// make the distinction, which most do not.
+	OriginalLanguage string
+	// Forms carries every translated, transliterated, or synonym string
+	// the provider published beyond the record's primary title/label. The
+	// record's own primary title is not duplicated here as FormOriginal
+	// unless the provider names a language/script for it that the record's
+	// own Descriptor cannot otherwise carry.
+	Forms []LocalizedForm
+}
+
+// MultilingualProvider reports the language, script, and alternative-form
+// metadata a provider publishes beyond its primary title/label
+// (x402-research-gateway#21). Optional: a provider with no multilingual
+// surface simply does not implement it, distinguishable from a provider
+// that implements it and reports a zero Multilingual for a specific record
+// with no such data.
+type MultilingualProvider interface {
+	Multilingual(record NormalizedRecord) Multilingual
+}
+
 // CitationGraphProvider serves one direction of the citation graph for one
 // upstream (x402-research-gateway#6).
 //
@@ -409,6 +494,7 @@ type Adapter struct {
 	SyncProvider            SyncProvider
 	IdentityProvider        IdentityProvider
 	DescriptorProvider      DescriptorProvider
+	MultilingualProvider    MultilingualProvider
 
 	CitationGraphProvider CitationGraphProvider
 }
@@ -443,6 +529,9 @@ func (a *Adapter) Capabilities() []Capability {
 	}
 	if a.IdentityProvider != nil {
 		caps = append(caps, CapIdentityResolution)
+	}
+	if a.MultilingualProvider != nil {
+		caps = append(caps, CapMultilingual)
 	}
 	if a.CitationGraphProvider != nil {
 		switch a.CitationGraphProvider.Direction() {

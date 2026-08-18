@@ -65,17 +65,24 @@ type meshDescriptor struct {
 }
 
 // meshLangValue absorbs MeSH's {"@language":"en","@value":"..."} shape,
-// which several fields use for a plain string.
+// which several fields use for a plain string. Language is kept alongside
+// Value (x402-research-gateway#21): every id.nlm.nih.gov response this
+// adapter reads carries an explicit @language tag on these fields, and a
+// prior revision read only @value, discarding the language MeSH itself
+// stated on every single response.
 type meshLangValue struct {
-	Value string
+	Value    string
+	Language string
 }
 
 func (v *meshLangValue) UnmarshalJSON(b []byte) error {
 	var wrapped struct {
-		Value string `json:"@value"`
+		Value    string `json:"@value"`
+		Language string `json:"@language"`
 	}
 	if err := json.Unmarshal(b, &wrapped); err == nil && wrapped.Value != "" {
 		v.Value = wrapped.Value
+		v.Language = wrapped.Language
 		return nil
 	}
 	var s string
@@ -153,13 +160,24 @@ func (p *MeSHProvider) GetConcept(id, release string) (Concept, bool) {
 		return Concept{}, false
 	}
 	c := Concept{
-		ID:            id,
-		PrefLabel:     raw.Label.Value,
-		SourceRelease: p.currentReleaseLabel(),
-		IntroducedIn:  raw.DateIntroduced,
-		Deprecated:    !raw.Active,
-		Native:        json.RawMessage(body),
-		NativeFormat:  "mesh-jsonld",
+		ID:                id,
+		PrefLabel:         raw.Label.Value,
+		PrefLabelLanguage: raw.Label.Language,
+		SourceRelease:     p.currentReleaseLabel(),
+		IntroducedIn:      raw.DateIntroduced,
+		Deprecated:        !raw.Active,
+		Native:            json.RawMessage(body),
+		NativeFormat:      "mesh-jsonld",
+	}
+	if raw.Label.Language != "" {
+		// PrefLabel restated as a Labels entry so a caller reading only
+		// Labels (the multilingual surface) still finds this record's own
+		// language-tagged label, not just callers reading PrefLabel
+		// directly.
+		c.Labels = append(c.Labels, LocalizedForm{
+			Value: raw.Label.Value, Language: raw.Label.Language,
+			Kind: FormOriginal, Provider: "mesh",
+		})
 	}
 	if raw.PreviousIndexing.Value != "" {
 		// previousIndexing carries the concept's prior label(s) with the

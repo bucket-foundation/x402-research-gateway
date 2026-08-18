@@ -56,7 +56,15 @@ type openAlexWork struct {
 	Title           string `json:"title"`
 	DisplayName     string `json:"display_name"`
 	PublicationYear int    `json:"publication_year"`
-	Authorships     []struct {
+	// Language is OpenAlex's own ISO-639-1 tag for the work
+	// (x402-research-gateway#21), read here and reported through
+	// Multilingual; a prior revision parsed this struct without the field
+	// at all, discarding it on every work OpenAlex returns. Title and
+	// DisplayName above are already in whatever language this names —
+	// OpenAlex does not translate them into English — so there is no
+	// separate "original title" to carry alongside them.
+	Language    string `json:"language"`
+	Authorships []struct {
 		Author struct {
 			DisplayName string `json:"display_name"`
 			ORCID       string `json:"orcid"`
@@ -109,6 +117,20 @@ func (p openAlexIdentity) Descriptor(rec NormalizedRecord) Descriptor {
 		}
 	}
 	return d
+}
+
+// Multilingual reports OpenAlex's own `language` field
+// (x402-research-gateway#21), the record's work language as OpenAlex
+// states it. There is no separate translated or transliterated title in
+// this response shape: OpenAlex's title/display_name fields are already in
+// this language, never machine-translated into English, so Forms is empty
+// and Language alone carries the fact this adapter has to report.
+func (p openAlexIdentity) Multilingual(rec NormalizedRecord) Multilingual {
+	w, ok := p.parse(rec)
+	if !ok || w.Language == "" {
+		return Multilingual{}
+	}
+	return Multilingual{Language: w.Language}
 }
 
 // ---------- Semantic Scholar ----------

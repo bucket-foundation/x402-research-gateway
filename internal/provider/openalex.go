@@ -72,7 +72,8 @@ var OpenAlexWorksAdapter = &Adapter{
 	Normalizer:       OpenAlexWorksNormalizer{},
 	CitationProvider: GenericCitationProvider{},
 
-	IdentityProvider:   openAlexIdentity{},
-	DescriptorProvider: openAlexIdentity{},
-	Paginator:          openAlexPaginator{},
+	IdentityProvider:     openAlexIdentity{},
+	DescriptorProvider:   openAlexIdentity{},
+	MultilingualProvider: openAlexIdentity{},
+	Paginator:            openAlexPaginator{},
 }

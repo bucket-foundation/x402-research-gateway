@@ -91,8 +91,14 @@ func TestVerifyFlagsStaleWithoutDeleting(t *testing.T) {
 	if p.StaleReason == "" {
 		t.Error("expected a stale reason")
 	}
-	if p.LastVerified == "" {
-		t.Error("last_verified should be recorded even on failure")
+	// #22: last_verified records the last SUCCESSFUL check, so an outage
+	// cannot masquerade as a fresh verification. LastChecked records the
+	// attempt regardless of outcome.
+	if p.LastVerified != "" {
+		t.Error("last_verified should stay empty: this provider has never passed a check")
+	}
+	if p.LastChecked == "" {
+		t.Error("last_checked should be recorded even on failure")
 	}
 }
 
@@ -215,5 +221,187 @@ func TestVerifyOnlyFiltersProviders(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].ProviderID != "b" {
 		t.Fatalf("expected only provider b, got %+v", results)
+	}
+}
+
+// TestVerifyPreservesLastKnownGoodOnOutage is the behavior this issue exists
+// for: a provider that was working, then goes down, must not lose the record
+// of when it last worked. Flipping last_verified to "today" on a failed
+// check would make a five-year-reliable source look identical to one that
+// has never once succeeded, which destroys exactly the information a
+// campaign relying on reproducibility needs.
+func TestVerifyPreservesLastKnownGoodOnOutage(t *testing.T) {
+	up := true
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if up {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	r := &Registry{
+		File: File{Providers: []Provider{{
+			ProviderID: "flaky", Name: "Flaky", Type: TypeScholarlyMetadata,
+			Status: StatusResearched, BaseURL: srv.URL,
+		}}},
+		byID: map[string]*Provider{},
+	}
+	r.byID["flaky"] = &r.Providers[0]
+
+	v := newTestVerifier()
+	if _, err := v.Verify(context.Background(), r, nil); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := r.Get("flaky")
+	goodDate := p.LastVerified
+	if goodDate == "" {
+		t.Fatal("expected the healthy pass to record last_verified")
+	}
+
+	// Move the clock and take the provider down.
+	v.Now = func() time.Time { return time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC) }
+	up = false
+	if _, err := v.Verify(context.Background(), r, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	p, _ = r.Get("flaky")
+	if p.LastVerified != goodDate {
+		t.Errorf("last_verified should still read %q from the last success, got %q", goodDate, p.LastVerified)
+	}
+	if !p.Stale {
+		t.Error("expected the entry flagged stale after the outage")
+	}
+	if p.LastChecked != "2026-08-20" {
+		t.Errorf("last_checked should advance to the failed attempt's date, got %q", p.LastChecked)
+	}
+}
+
+// TestVerifySurfacesSunsetHeaderAsWarningNotFailure covers RFC 8594 Sunset
+// and the Deprecation convention several APIs use ahead of it: an endpoint
+// that answers 200 while announcing its own retirement is not "down," but a
+// human deciding whether to plan a migration needs to see it.
+func TestVerifySurfacesSunsetHeaderAsWarningNotFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Sunset", "Sat, 31 Oct 2026 23:59:59 GMT")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	r := &Registry{
+		File: File{Providers: []Provider{{
+			ProviderID: "sunsetting", Name: "Sunsetting", Type: TypeScholarlyMetadata,
+			Status: StatusResearched, BaseURL: srv.URL,
+		}}},
+		byID: map[string]*Provider{},
+	}
+	r.byID["sunsetting"] = &r.Providers[0]
+
+	results, err := newTestVerifier().Verify(context.Background(), r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !results[0].OK {
+		t.Fatal("a Sunset header on an otherwise healthy endpoint must not fail the check")
+	}
+	if len(results[0].Warnings) == 0 {
+		t.Fatal("expected the Sunset header surfaced as a warning")
+	}
+	p, _ := r.Get("sunsetting")
+	if p.LastVerified == "" {
+		t.Error("a warning-only result should still count as verified")
+	}
+	if len(p.Warnings) == 0 || !strings.Contains(p.Warnings[0], "Sunset") {
+		t.Errorf("expected a persisted Sunset warning, got %v", p.Warnings)
+	}
+}
+
+// TestVerifyDetectsDocumentationDrift covers the acceptance criterion that
+// documentation-URL content changing materially since last_verified is
+// surfaced. The first run establishes the baseline hash; the second, against
+// changed content, must warn without failing the check.
+func TestVerifyDetectsDocumentationDrift(t *testing.T) {
+	body := "these are the docs, v1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+
+	r := &Registry{
+		File: File{Providers: []Provider{{
+			ProviderID: "docdrift", Name: "DocDrift", Type: TypeScholarlyMetadata,
+			Status: StatusResearched, BaseURL: srv.URL, DocumentationURL: srv.URL + "/docs",
+		}}},
+		byID: map[string]*Provider{},
+	}
+	r.byID["docdrift"] = &r.Providers[0]
+
+	v := newTestVerifier()
+	if _, err := v.Verify(context.Background(), r, nil); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := r.Get("docdrift")
+	if p.DocumentationContentHash == "" {
+		t.Fatal("expected a baseline documentation hash after the first run")
+	}
+	if len(p.Warnings) != 0 {
+		t.Fatalf("first run has nothing to compare against, expected no drift warning, got %v", p.Warnings)
+	}
+
+	body = "these are the docs, v2, everything moved"
+	results, err := v.Verify(context.Background(), r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !results[0].OK {
+		t.Fatal("documentation drift must warn, not fail")
+	}
+	p, _ = r.Get("docdrift")
+	found := false
+	for _, w := range p.Warnings {
+		if strings.Contains(w, "documentation_drift") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a documentation_drift warning after content changed, got %v", p.Warnings)
+	}
+}
+
+// TestVerifyDetectsSunsetKeywordInDocumentation covers the weaker,
+// prose-based signal: most providers announce a migration in the docs body
+// with no Sunset header at all, which is exactly how the PatentsView -> USPTO
+// ODP migration this issue references would have shown up.
+func TestVerifyDetectsSunsetKeywordInDocumentation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("This API has been discontinued. Please use the new portal instead."))
+	}))
+	defer srv.Close()
+
+	r := &Registry{
+		File: File{Providers: []Provider{{
+			ProviderID: "migrating", Name: "Migrating", Type: TypeScholarlyMetadata,
+			Status: StatusResearched, BaseURL: srv.URL, DocumentationURL: srv.URL + "/docs",
+		}}},
+		byID: map[string]*Provider{},
+	}
+	r.byID["migrating"] = &r.Providers[0]
+
+	if _, err := newTestVerifier().Verify(context.Background(), r, nil); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := r.Get("migrating")
+	found := false
+	for _, w := range p.Warnings {
+		if strings.Contains(w, "documentation_sunset_keyword") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a documentation_sunset_keyword warning, got %v", p.Warnings)
 	}
 }

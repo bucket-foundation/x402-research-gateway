@@ -1,0 +1,57 @@
+name: provider health
+
+# Scheduled drift check (x402-research-gateway#22). Runs the same Verifier
+# `make verify-providers` uses against every operational and researched
+# provider, at a low, polite pace (the Verifier's default 1s delay between
+# providers), and never against result sets: one lightweight HEAD/ranged-GET
+# per URL. Unit tests (go test ./...) touch no network and run in the
+# regular CI workflow; this is the only job that talks to upstream APIs.
+#
+# Registry entries are never deleted or downgraded here. A failing check
+# writes stale=true and a stale_reason to config/providers.yaml and opens a
+# PR so a human reviews the drift instead of it landing on main unseen.
+on:
+  schedule:
+    # Once a day, off the hour, so this job doesn't line up with every other
+    # scheduled job hitting the same public APIs at :00.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: verify providers (write results)
+        run: go run ./cmd/registry verify -write -delay 2s
+
+      - name: print health summary
+        run: go run ./cmd/registry health
+
+      - name: open a PR if the registry changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(registry): scheduled provider verification"
+          title: "chore(registry): scheduled provider verification"
+          body: |
+            Automated run of `make verify-providers`. Reviews last_verified,
+            last_checked, stale flags, and documentation-drift/sunset
+            warnings recorded by the scheduled health check.
+
+            No registry entry is deleted or downgraded by this job. A
+            provider flagged stale kept its status; last_verified still
+            reads its last successful check, never today's date, per
+            x402-research-gateway#22.
+          branch: registry/scheduled-verification
+          delete-branch: true
+          labels: |
+            provider-health

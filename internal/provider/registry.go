@@ -127,5 +127,29 @@ func DefaultRegistry() Registry {
 		// the declarative path cannot express.
 		BioModelsSearchAdapter.ID: BioModelsSearchAdapter,
 		BioModelsFetchAdapter.ID:  BioModelsFetchAdapter,
+
+		// Scientific dataset, software, and model repositories
+		// (x402-research-gateway#16). Each adapter matches the provider
+		// type its source actually is rather than forcing one shape: PubChem
+		// is an identifier-keyed fetch (name and CID are two schemes into
+		// the same lookup), UniProt/GBIF/OSF/Figshare are search+fetch
+		// pairs with per-record rights, and the NASA Exoplanet Archive is a
+		// single ADQL query-in/table-out route with no separate fetch, a
+		// TAP service rather than a search box.
+		PubChemCompoundByCIDAdapter.ID: PubChemCompoundByCIDAdapter,
+
+		UniProtSearchAdapter.ID: UniProtSearchAdapter,
+		UniProtFetchAdapter.ID:  UniProtFetchAdapter,
+
+		GBIFOccurrenceSearchAdapter.ID: GBIFOccurrenceSearchAdapter,
+		GBIFOccurrenceFetchAdapter.ID:  GBIFOccurrenceFetchAdapter,
+
+		NASAExoplanetArchiveAdapter.ID: NASAExoplanetArchiveAdapter,
+
+		OSFNodeSearchAdapter.ID: OSFNodeSearchAdapter,
+		OSFNodeFetchAdapter.ID:  OSFNodeFetchAdapter,
+
+		FigshareSearchAdapter.ID: FigshareSearchAdapter,
+		FigshareFetchAdapter.ID:  FigshareFetchAdapter,
 	}
 }

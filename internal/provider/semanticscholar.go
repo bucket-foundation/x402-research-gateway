@@ -50,4 +50,5 @@ var SemanticScholarSearchAdapter = &Adapter{
 
 	IdentityProvider:   semanticScholarIdentity{},
 	DescriptorProvider: semanticScholarIdentity{},
+	Paginator:          semanticScholarPaginator{},
 }

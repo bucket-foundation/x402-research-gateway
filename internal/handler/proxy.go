@@ -18,6 +18,14 @@ type ProxyResult struct {
 	StatusCode int
 	Body       []byte
 	LatencyMs  int64
+	// Header is the upstream response header, needed by the harvest path
+	// for rate-limit state and the provider's own request id
+	// (x402-research-gateway#10). Nothing here reaches a client verbatim.
+	Header http.Header
+	// RequestURL is the upstream URL this call issued. It carries
+	// credentials, so it stays inside the process: the harvest path hashes
+	// it through harvest.SanitizeURL and never emits it.
+	RequestURL string
 }
 
 // proxyToUpstream calls the upstream research API and returns the response.
@@ -75,6 +83,8 @@ func proxyToUpstream(ctx context.Context, client *http.Client, route *config.Rou
 		StatusCode: resp.StatusCode,
 		Body:       body,
 		LatencyMs:  latency,
+		Header:     resp.Header,
+		RequestURL: upstreamURL,
 	}, nil
 }
 

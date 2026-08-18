@@ -40,6 +40,7 @@ field-by-field migration and deprecation window.
 | `/research/crossref/fetch` | Crossref work record by DOI | raw |
 | `/research/assets` | Rights-aware asset discovery across open-access sources | query |
 | `/research/integrity` | Corrections, retractions, withdrawals, and versions per provider | query |
+| `/research/harvest` | One page of a resumable harvest, with a signed cursor | query |
 | `/research/core/search` | CORE open-access aggregator search | query |
 | `/research/core/fetch` | CORE work record | raw |
 
@@ -54,7 +55,8 @@ feed402 enveloping behind small composable Go interfaces in
 `Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
 `SyncProvider`, `IdentityProvider`, `DescriptorProvider`,
 `ObjectRelationProvider`, `IntegrityProvider`, `AvailabilityReporter`,
-`RecordRightsProvider`, `CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+`RecordRightsProvider`, `Paginator`, `ReleaseReporter`,
+`CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
 declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
 remain the cheapest way to add a simple REST upstream, proxied unchanged by
 [`internal/handler/proxy.go`](internal/handler/proxy.go).

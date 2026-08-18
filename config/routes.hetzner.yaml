@@ -93,6 +93,21 @@ feed402:
     maxConcurrency: 4
     timeoutSeconds: 10
 
+  # Resumable harvest (x402-research-gateway#10). One paid page plus a
+  # signed cursor; present the cursor back to continue from the exact
+  # position. The gateway stores no harvest state. cursorSecret keys both
+  # the cursor signature and the feed402 SPEC 3.6 fingerprints; leave it
+  # unset and cursors stop verifying across a restart, which the response
+  # reports through cursor_ephemeral.
+  harvest:
+    enabled: true
+    path: /research/harvest
+    price: "0.002"
+    description: "One page of a resumable harvest, with a client-persistable signed cursor"
+    providerRouteIds: []
+    timeoutSeconds: 20
+    cursorSecret: "${HARVEST_CURSOR_SECRET}"
+
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
 

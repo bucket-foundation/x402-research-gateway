@@ -54,4 +54,5 @@ var ClinicalTrialsSearchAdapter = &Adapter{
 	Normalizer:             ClinicalTrialsSearchNormalizer{},
 	CitationProvider:       GenericCitationProvider{},
 	ObjectRelationProvider: clinicalTrialsRelations{},
+	Paginator:              clinicalTrialsPaginator{},
 }

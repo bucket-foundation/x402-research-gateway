@@ -364,6 +364,7 @@ var EuropePMCSearchAdapter = &Adapter{
 	RecordRightsProvider: epmcIdentity{},
 	IntegrityProvider:    epmcIdentity{},
 	SyncProvider:         epmcSync{},
+	Paginator:            europePMCPaginator{},
 }
 
 // EuropePMCFetchAdapter backs route ID "epmc-fetch".

@@ -90,6 +90,31 @@ type Feed402Config struct {
 	// and returns every provider's correction, retraction, withdrawal,
 	// expression-of-concern, and version assertions side by side.
 	Integrity IntegrityConfig `yaml:"integrity"`
+	// Harvest (optional) turns on the resumable paging endpoint
+	// (x402-research-gateway#10). When enabled the gateway registers a POST
+	// handler at Harvest.Path that serves one page plus a signed cursor,
+	// and accepts that cursor back to resume from the exact position.
+	Harvest HarvestConfig `yaml:"harvest"`
+}
+
+// HarvestConfig configures the resumable harvest endpoint.
+type HarvestConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/harvest"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts harvestable routes to these ids. Empty
+	// means every route whose adapter implements Paginator.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// TimeoutSeconds bounds one page fetch. Default 20.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
+	// CursorSecret keys the cursor signature and the feed402 §3.6
+	// fingerprints. Read from the environment through the config file's
+	// ${VAR} expansion; it is never emitted, logged, or derived from
+	// anything a client sends. Empty means a random per-process key, which
+	// invalidates outstanding cursors on restart, and the response says so
+	// through cursor_ephemeral.
+	CursorSecret string `yaml:"cursorSecret"`
 }
 
 // IntegrityConfig configures the integrity endpoint.
@@ -429,6 +454,20 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Integrity.TimeoutSeconds == 0 {
 				cfg.Feed402.Integrity.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.Harvest.Enabled {
+			if cfg.Feed402.Harvest.Path == "" {
+				cfg.Feed402.Harvest.Path = "/research/harvest"
+			}
+			if cfg.Feed402.Harvest.Price == "" {
+				cfg.Feed402.Harvest.Price = "0.002"
+			}
+			if cfg.Feed402.Harvest.Description == "" {
+				cfg.Feed402.Harvest.Description = "One page of a resumable harvest, with a signed cursor"
+			}
+			if cfg.Feed402.Harvest.TimeoutSeconds == 0 {
+				cfg.Feed402.Harvest.TimeoutSeconds = 20
 			}
 		}
 		if cfg.Feed402.Federated.Enabled {

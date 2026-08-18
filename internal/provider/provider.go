@@ -23,6 +23,7 @@ import (
 
 	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/harvest"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
 	"github.com/gianyrox/x402-research-gateway/internal/integrity"
 	"github.com/gianyrox/x402-research-gateway/internal/relation"
@@ -118,6 +119,33 @@ type Fetcher interface {
 	// IdentifierSchemes lists the identifier namespaces this fetch accepts,
 	// mirroring feed402 SPEC §1.2 OperationSpec.identifier_schemes.
 	IdentifierSchemes() []string
+}
+
+// Paginator drives a provider's own pagination model for a resumable
+// harvest (x402-research-gateway#10). Searcher.PaginationModel names the
+// scheme; this interface operates it.
+//
+// An implementation never invents a next page. A response carrying no
+// next-page handle ends the set, and the difference between "the provider
+// has no more" and "the provider will serve no more" belongs in the
+// implementation's own documentation, since only it knows which.
+type Paginator interface {
+	// Model is the feed402 SPEC §1.2 pagination model this provider uses.
+	Model() string
+	// PageParams renders the upstream query parameters for a position. A
+	// zero position is the first page.
+	PageParams(pos harvest.Position, pageSize int) map[string]string
+	// NextPosition reads the next page's position out of a response body.
+	// ok=false means the set is exhausted.
+	NextPosition(body []byte, pos harvest.Position, pageSize int) (harvest.Position, bool)
+}
+
+// ReleaseReporter names the upstream API release a response came from, for
+// feed402 SPEC §3.6 provider_release. Optional: a provider that publishes
+// no release identifier reports none rather than a fabricated one, and a
+// harvest across it cannot detect a boundary, which the response states.
+type ReleaseReporter interface {
+	ProviderRelease(body []byte) string
 }
 
 // Normalizer turns a raw upstream response body into normalized records.
@@ -363,6 +391,8 @@ type Adapter struct {
 	RecordRightsProvider   RecordRightsProvider
 	ObjectRelationProvider ObjectRelationProvider
 	IntegrityProvider      IntegrityProvider
+	Paginator              Paginator
+	ReleaseReporter        ReleaseReporter
 	VocabularyProvider     VocabularyProvider
 	SyncProvider           SyncProvider
 	IdentityProvider       IdentityProvider

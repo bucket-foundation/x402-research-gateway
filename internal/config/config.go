@@ -84,6 +84,29 @@ type Feed402Config struct {
 	// publishes, and returns the locations with rights stated per
 	// representation. It discovers locations and never fetches them.
 	Assets AssetsConfig `yaml:"assets"`
+	// Integrity (optional) turns on the scholarly integrity and update
+	// endpoint (x402-research-gateway#9). When enabled the gateway
+	// registers a POST handler at Integrity.Path that accepts {identifier}
+	// and returns every provider's correction, retraction, withdrawal,
+	// expression-of-concern, and version assertions side by side.
+	Integrity IntegrityConfig `yaml:"integrity"`
+}
+
+// IntegrityConfig configures the integrity endpoint.
+type IntegrityConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/integrity"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts fan-out to these route ids. Empty means
+	// every route whose adapter implements IntegrityProvider.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// MaxConcurrency bounds simultaneous upstream calls. Default 4.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+	// TimeoutSeconds bounds each provider call. A provider that exceeds it
+	// is reported as a timeout, never as a provider with no notices, since
+	// no notices would read as a clearance. Default 10.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
 }
 
 // AssetsConfig configures the asset-discovery endpoint.
@@ -389,6 +412,23 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Assets.TimeoutSeconds == 0 {
 				cfg.Feed402.Assets.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.Integrity.Enabled {
+			if cfg.Feed402.Integrity.Path == "" {
+				cfg.Feed402.Integrity.Path = "/research/integrity"
+			}
+			if cfg.Feed402.Integrity.Price == "" {
+				cfg.Feed402.Integrity.Price = "0.005"
+			}
+			if cfg.Feed402.Integrity.Description == "" {
+				cfg.Feed402.Integrity.Description = "Corrections, retractions, withdrawals, and versions asserted per provider"
+			}
+			if cfg.Feed402.Integrity.MaxConcurrency == 0 {
+				cfg.Feed402.Integrity.MaxConcurrency = 4
+			}
+			if cfg.Feed402.Integrity.TimeoutSeconds == 0 {
+				cfg.Feed402.Integrity.TimeoutSeconds = 10
 			}
 		}
 		if cfg.Feed402.Federated.Enabled {

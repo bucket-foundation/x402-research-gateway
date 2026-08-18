@@ -16,7 +16,7 @@ providers:
   - provider_id: "arxiv"
     name: "arXiv (math.*)"
     provider_type: preprint_repository
-    status: researched
+    status: implemented
     section: "1.1"
     fields:
       - mathematics
@@ -24,18 +24,32 @@ providers:
       - information_computation
     coverage: "Preprints in all math subj classes (AG, AT, CO, DG, NT, PR, ST…)"
     corpus_size: "~600k math preprints"
-    base_url: "http://export.arxiv.org/api/query?search_query=cat:math.*"
+    base_url: "http://export.arxiv.org/api/query"
     source_prefix: "arxiv"
     canonical_url: "https://arxiv.org/abs/{id}"
     tier_fit: "raw (by id), query (search)"
     auth: "none"
-    rate_limit: "1 req/3s polite"
-    license: "arXiv non-exclusive (metadata free; PDF per-paper)"
+    rate_limit: "1 request per 3 seconds, the published guidance; arXiv runs on donated infrastructure so this is a requirement"
+    license: "per-record; arXiv non-exclusive through CC-BY variants to CC0"
     rights:
-      metadata_license: "arXiv non-exclusive (metadata free; PDF per-paper)"
+      metadata_license: "metadata freely available from the API"
+      content_license: "per submission; the adapter reads arxiv:license per record"
       redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "Atom XML not JSON; parser new. Rate-limit strict — cache aggressively. Docs: https://info.arxiv.org/help/api/ Endpoints/format: (Atom)"
+      verified_on: "2026-08-17"
+      notes: "Submission licences vary from CC0 through the CC-BY variants to the arXiv non-exclusive licence, which grants arXiv distribution rights and grants the reader none. A provider-level content licence would be wrong for most records, so rights are read per record and an absent statement reports unknown. Unknown is not permission."
+    identifier_schemes:
+      - arxiv
+      - doi
+    pagination: "offset via start + max_results; max_results capped at 2000 per call and 30000 results overall"
+    bulk_access: false
+    incremental_updates: true
+    formats:
+      - atom
+    last_verified: "2026-08-17"
+    route_ids:
+      - arxiv-search
+      - arxiv-fetch
+    notes: "Atom XML, parsed by the adapter's atom-style Normalizer; the declarative proxy path cannot express it. Versions are distinct objects and stay separately addressable: the record id keeps its vN suffix. A submission's arxiv:doi becomes a provider-asserted preprint_of relation feeding preprint-to-published identity resolution. Subject classification is preserved with its scheme. OAI-PMH incremental harvest is open; the full-text bulk sets are requester-pays object storage this gateway does not access, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "zbmath-open-rest"
     name: "zbMATH Open REST"
@@ -760,25 +774,45 @@ providers:
   - provider_id: "europe-pmc"
     name: "Europe PMC"
     provider_type: full_text_repository
-    status: researched
+    status: implemented
     section: "1.5"
     fields:
       - biophysics_life_sciences
       - cross_cutting
     coverage: "PubMed + preprints + Agricola + patents"
     corpus_size: "~43M (2026)"
-    base_url: "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=...&format=json"
+    base_url: "https://www.ebi.ac.uk/europepmc/webservices/rest"
     source_prefix: "epmc"
     canonical_url: "https://europepmc.org/article/{src}/{id}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
+    rate_limit: "around 30 requests per minute per the published guidance"
     license: "mixed (per-record)"
     rights:
       metadata_license: "mixed (per-record)"
+      content_license: "per record; the open-access subset carries several licences"
       redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "No API key, simpler than NCBI. Has annotation API for NER. Docs: https://europepmc.org/RestfulWebService"
+      verified_on: "2026-08-17"
+      notes: "Free to read and open to redistribute are different facts and this corpus contains both. isOpenAccess and inEPMC say the content is readable; only the license field says anything about redistribution. A record with no licence reports unknown even when openly readable. Unknown is not permission."
+    identifier_schemes:
+      - pmid
+      - pmcid
+      - doi
+    pagination: "cursorMark, starting at * and continued by the response's nextCursorMark"
+    bulk_access: true
+    incremental_updates: true
+    fulltext_access: true
+    structured_fulltext: true
+    formats:
+      - json
+      - xml
+    last_verified: "2026-08-17"
+    route_ids:
+      - epmc-search
+      - epmc-fetch
+      - epmc-references
+      - epmc-cited-by
+    notes: "No API key. Full text for the open-access subset is served as JATS XML at /{source}/{id}/fullTextXML; the gateway surfaces the address of the structured document rather than flattening it, because the structure is the reason to want it. References and citations at /{source}/{id}/references and /citations. Preprint and correction relations come from commentCorrectionList. Verified 2026-08-17."
 
   - provider_id: "biorxiv-medrxiv"
     name: "bioRxiv / medRxiv"
@@ -1748,23 +1782,37 @@ providers:
   - provider_id: "datacite"
     name: "DataCite"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "DOI metadata for datasets"
+    coverage: "DOI metadata for datasets, software, and other non-article research outputs"
     corpus_size: "~65M"
-    base_url: "https://api.datacite.org/dois"
+    base_url: "https://api.datacite.org"
     source_prefix: "datacite"
     canonical_url: "https://doi.org/{doi}"
     tier_fit: "raw, query"
-    auth: "none"
-    rate_limit: "polite"
-    license: "CC0"
+    auth: "none for public read"
+    rate_limit: "no published numeric limit found on 2026-08-17; treated as polite"
+    license: "CC0 (metadata only)"
     rights:
       metadata_license: "CC0"
+      content_license: "per record from rightsList; frequently absent"
       redistribution: allowed
-    notes: "Dataset/software DOIs (complement to CrossRef)."
+      verified_on: "2026-08-17"
+      notes: "CC0 covers the DataCite metadata record and says nothing about the deposited object. A CC0 DataCite record routinely describes a dataset under some other licence or none. The adapter reads the object licence from rightsList per record and reports unknown when it is absent. Unknown is not permission."
+    identifier_schemes:
+      - doi
+    pagination: "page[size] with page[number], and page[cursor] for deep paging past the offset limit"
+    bulk_access: false
+    incremental_updates: true
+    formats:
+      - json
+    last_verified: "2026-08-17"
+    route_ids:
+      - datacite-search
+      - datacite-fetch
+    notes: "Dataset and software DOIs, the complement to Crossref. JSON:API shape: data[].attributes. resourceTypeGeneral is preserved because a dataset, a piece of software, and a text are different objects. relatedIdentifiers are surfaced with DataCite's own relationType term preserved beside any normalized term; terms the identity vocabulary has no word for keep the provider's term and gain no normalized one. Rate limit not published as a number on 2026-08-17, recorded as unverified. Verified 2026-08-17."
 
   - provider_id: "openalex"
     name: "OpenAlex"

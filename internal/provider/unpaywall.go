@@ -240,13 +240,15 @@ func (unpaywallSync) SyncCapability() SyncCapability {
 // UnpaywallFetchAdapter backs route ID "unpaywall-fetch". Unpaywall has no
 // search endpoint, so this is the only adapter for the provider.
 var UnpaywallFetchAdapter = &Adapter{
-	ID:                 "unpaywall-fetch",
-	Description:        "Unpaywall open-access location lookup by DOI.",
-	Fetcher:            unpaywallFetchByDOI{},
-	Normalizer:         UnpaywallNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   unpaywallIdentity{},
-	DescriptorProvider: unpaywallIdentity{},
-	AssetProvider:      unpaywallIdentity{},
-	SyncProvider:       unpaywallSync{},
+	ID:                   "unpaywall-fetch",
+	Description:          "Unpaywall open-access location lookup by DOI.",
+	Fetcher:              unpaywallFetchByDOI{},
+	Normalizer:           UnpaywallNormalizer{},
+	CitationProvider:     GenericCitationProvider{},
+	IdentityProvider:     unpaywallIdentity{},
+	DescriptorProvider:   unpaywallIdentity{},
+	AssetProvider:        unpaywallIdentity{},
+	RecordRightsProvider: unpaywallIdentity{},
+	AvailabilityReporter: unpaywallIdentity{},
+	SyncProvider:         unpaywallSync{},
 }

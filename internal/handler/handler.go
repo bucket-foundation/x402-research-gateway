@@ -180,6 +180,39 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		routeIndex[citKey] = &cfg.Routes[len(cfg.Routes)-1]
 	}
 
+	// Asset-discovery synthetic route (x402-research-gateway#8).
+	if cfg.Feed402.Enabled && cfg.Feed402.Assets.Enabled {
+		as := cfg.Feed402.Assets
+		cfg.Routes = append(cfg.Routes, config.RouteConfig{
+			ID:          "feed402-assets",
+			Path:        as.Path,
+			Method:      "POST",
+			Description: as.Description,
+			MimeType:    "application/json",
+			Price:       as.Price,
+			Feed402Tier: "query",
+			Citation: config.RouteCitation{
+				SourcePrefix: "assets",
+				License:      cfg.Feed402.CitationPolicy,
+			},
+		})
+		asKey := "POST " + as.Path
+		x402Routes[asKey] = x402http.RouteConfig{
+			Description: as.Description,
+			MimeType:    "application/json",
+			Accepts: x402http.PaymentOptions{
+				{
+					Scheme:            "exact",
+					Network:           network,
+					PayTo:             cfg.RecipientAddress,
+					Price:             as.Price,
+					MaxTimeoutSeconds: 60,
+				},
+			},
+		}
+		routeIndex[asKey] = &cfg.Routes[len(cfg.Routes)-1]
+	}
+
 	// Federated search synthetic route (x402-research-gateway#4). Only the
 	// POST is x402-protected; the GET estimate is free and registered
 	// below, outside the payment plumbing, because pricing a call must not
@@ -273,6 +306,10 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		}
 		if r.ID == "feed402-citations" {
 			h.router.Post(r.Path, h.handleCitations)
+			continue
+		}
+		if r.ID == "feed402-assets" {
+			h.router.Post(r.Path, h.handleAssets)
 			continue
 		}
 		if r.ID == "feed402-federated" {

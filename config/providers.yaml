@@ -665,7 +665,7 @@ providers:
   - provider_id: "core"
     name: "CORE"
     provider_type: full_text_repository
-    status: researched
+    status: implemented
     section: "1.4"
     fields:
       - information_computation
@@ -681,8 +681,26 @@ providers:
     license: "CC-BY where upstream OA"
     rights:
       metadata_license: "CC-BY where upstream OA"
-      redistribution: allowed
-    notes: "OA full-text search — major asset for insight tier."
+      content_license: "per record; CORE aggregates from repositories with differing deposit terms"
+      redistribution: unknown
+      notes: "Redistribution is per record. CORE holding a copy is not a grant, and a record with no licence field reports unknown."
+    identifier_schemes:
+      - doi
+    capabilities:
+      - search
+      - fetch
+      - assets
+      - full_text
+      - bulk
+      - incremental_sync
+    route_ids:
+      - core-search
+      - core-fetch
+    pagination: "offset"
+    bulk_access: true
+    incremental_updates: true
+    fulltext_access: true
+    notes: "OA full-text search — major asset for insight tier. Adapter implemented in x402-research-gateway#8 (internal/provider/core.go). Operational only where the operator supplies CORE_API_KEY; the gateway holds no key of its own. Location discovery only: the gateway never fetches, mirrors, or re-serves CORE-hosted content."
 
   - provider_id: "openreview"
     name: "OpenReview"

@@ -344,6 +344,7 @@ var DataCiteSearchAdapter = &Adapter{
 	IdentityProvider:       dataciteIdentity{},
 	DescriptorProvider:     dataciteIdentity{},
 	AssetProvider:          dataciteIdentity{},
+	RecordRightsProvider:   dataciteIdentity{},
 	ObjectRelationProvider: dataciteIdentity{},
 	SyncProvider:           dataciteSync{},
 }
@@ -358,6 +359,7 @@ var DataCiteFetchAdapter = &Adapter{
 	IdentityProvider:       dataciteIdentity{},
 	DescriptorProvider:     dataciteIdentity{},
 	AssetProvider:          dataciteIdentity{},
+	RecordRightsProvider:   dataciteIdentity{},
 	ObjectRelationProvider: dataciteIdentity{},
 	SyncProvider:           dataciteSync{},
 }

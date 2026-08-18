@@ -75,6 +75,8 @@ var normalizerContracts = []struct {
 	{"lmfdb/search", LMFDBNormalizer{}, lmfdbFixture, 1, false},
 	{"biomodels/search", BioModelsNormalizer{}, biomodelsSearchFixture, 1, false},
 	{"biomodels/fetch", BioModelsNormalizer{}, biomodelsSingleFixture, 1, false},
+	{"uspto/search", USPTONormalizer{}, usptoSearchFixture, 1, false},
+	{"uspto/fetch", USPTONormalizer{}, usptoFetchGrantedFixture, 1, false},
 }
 
 func TestNormalizerContracts(t *testing.T) {
@@ -121,6 +123,7 @@ func TestNormalizerContracts_CoverEveryRegisteredNormalizer(t *testing.T) {
 		"doaj/search", "doaj/fetch", "openaire/search", "openaire/fetch",
 		"biorxiv/listing",
 		"oeis/search", "lmfdb/search", "biomodels/search", "biomodels/fetch",
+		"uspto/search", "uspto/fetch",
 	}
 	for _, w := range want {
 		if !registered[w] {

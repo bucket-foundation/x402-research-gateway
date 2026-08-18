@@ -19,14 +19,14 @@
 
 ## Coverage
 
-142 sources registered · reviewed 2026-04-21
+145 sources registered · reviewed 2026-04-21
 
 | Lifecycle status | Sources |
 |---|---|
-| `discovered` | 8 |
-| `researched` | 79 |
+| `discovered` | 11 |
+| `researched` | 78 |
 | `registered` | 12 |
-| `implemented` | 25 |
+| `implemented` | 26 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -46,7 +46,7 @@
 | `standard` | 5 |
 | `dataset_repository` | 10 |
 | `software_repository` | 1 |
-| `patent_database` | 3 |
+| `patent_database` | 6 |
 | `author_registry` | 1 |
 | `organization_registry` | 1 |
 | `chemical_database` | 7 |
@@ -253,7 +253,10 @@
 | **Altmetric** | `researched` | `scholarly_metadata` | Social attention scoring | — | `https://api.altmetric.com/v1/` | api-key | 1/s free | proprietary | `unknown` | query | `altmetric` | `https://www.altmetric.com/details/{id}` | — | Useful adjunct for insight tier. Endpoints/format: (free tier), commercial above |
 | **Semantic Scholar (S2) API** | `production` | `scholarly_metadata` | Research graph + TLDRs + embeddings | ~220M papers | `https://api.semanticscholar.org/graph/v1/` | api-key optional | 1/s anon, 100/s keyed | CC-BY-NC (TLDRs), ODC-BY (meta) | `allowed` | raw, query | `s2` | `https://www.semanticscholar.org/paper/{id}` | — | Keep. TLDRs useful in insight tier. Citation endpoints /graph/v1/paper/{id}/references and /citations, verified 2026-08-17. |
 | **PatentsView legacy API** | `sunset` | `patent_database` | US patent data, retired API | ~8M US patents | — | api-key | — | US-gov public domain | `allowed` | — | `patentsview` | — | — | Retired. USPTO migrated to the Open Data Portal on 2026-03-20. Retained as the predecessor entry so historical references still resolve. |
-| **USPTO Open Data Portal** | `researched` | `patent_database` | US patents and applications | US patents and applications | `https://data.uspto.gov/` | api-key | per-key | US-gov public domain | `allowed` | raw, query | `uspto` | `https://patents.google.com/patent/{id}` | — | Successor to the retired PatentsView API since 2026-03-20. ODP API key required; further account requirements phase in during June and August 2026. Verification is deployment-blocked until a key is provisioned. |
+| **USPTO Open Data Portal** | `implemented` | `patent_database` | US patent applications and granted patents: prosecution/file-wrapper metadata, applicant and inventor parties, CPC/USPC classification, and the parent/child continuity graph (patent family). US jurisdiction only; no EPO, WIPO, or other national-office coverage. Verified absent: forward and backward patent citations are not published on this API (a prosecution-history API, not a citation graph). | US patents and applications | `https://api.uspto.gov/` | api-key (X-API-KEY header) | 1,200,000 Patent File Wrapper Document requests/week; 5,000,000 metadata-retrieval requests/week (per provisioned key) | US-gov public domain | `allowed` | raw, query | `uspto` | `https://patentcenter.uspto.gov/applications/{id}` | 2026-08-18 | Successor to the retired PatentsView API since 2026-03-20. Verified live 2026-08-18 against a founder-provisioned ODP API key: search, fetch-by-application-number, applicant/inventor parties, CPC/USPC classification, and parentContinuityBag/childContinuityBag (patent family via continuity, not a separate family id — USPTO ODP publishes none) all confirmed present on real records. Forward/backward citation data verified ABSENT from every record inspected (pending, published, and granted applications); no citation-graph adapter registered for this provider, and an agent requesting one gets an explicit unsupported answer per internal/provider/uspto.go's registration. No proxying of file-wrapper documents (PDFs) is implemented: this adapter is bibliographic/metadata discovery only. Adapter: internal/provider/uspto.go (USPTOSearchAdapter, USPTOFetchAdapter), x402-research-gateway#18. |
+| **Google Patents** | `discovered` | `patent_database` | Patent full text and bibliographic data aggregated across ~100+ patent offices, including scholarly-citation linkage (Google Scholar overlap) that no single patent office publishes. | — | `https://patents.google.com/` | unresolved (public web UI; bulk data via Google Patents Public Data on BigQuery, a separate access path) | — | — | `unknown` | unresolved | `google-patents` | `https://patents.google.com/patent/{id}` | — | Named in x402-research-gateway#18's provider list. No live query API endpoint was verified during this session (Google Patents' public surface is a web UI and a BigQuery bulk export, not a documented REST query API this gateway could implement against without further scoping). Flagged unverified per this issue's own rule rather than blocking the issue; no adapter implemented, no route registered. |
+| **EPO Open Patent Services (OPS)** | `discovered` | `patent_database` | European Patent Office bibliographic, full-text, legal-status, and citation data; the feed402 repo's own SPEC §6.1 already documents an EPO OPS posture for the sibling protocol repo. | — | `https://ops.epo.org/3.2/` | OAuth2 client-credentials (registered developer account required) | throttled per registered consumer key; tiers documented on the EPO developer portal | — | `unknown` | unresolved | `epo-ops` | — | — | Named in x402-research-gateway#18's provider list. No developer credential was provisioned this session (only a USPTO ODP key was); no live endpoint verification was performed, and no adapter implemented. The feed402 protocol repo's SPEC §6.1 (routes/patents.ts) documents an EPO OPS posture that could seed a future gateway adapter, but that document is the protocol repo's own conceptual template, not a verified live gateway endpoint. |
+| **WIPO PATENTSCOPE** | `discovered` | `patent_database` | International (PCT) patent applications and a large mirror of national-office collections; the feed402 repo's own SPEC §6.1 documents a PATENTSCOPE posture admitting content only on the insight tier under a derivative-license clause. | — | `https://patentscope.wipo.int/` | unresolved | — | — | `unknown` | insight (per feed402 SPEC §6.1's derivative-license precedent, not independently reverified this session) | `wipo-patentscope` | — | — | Named in x402-research-gateway#18's provider list. No developer credential was provisioned this session; no live endpoint verification was performed, and no adapter implemented. Whichever future session implements this provider must re-verify WIPO's current terms directly rather than relying on the feed402 SPEC §6.1 restatement carried here as a starting pointer. |
 
 ---
 

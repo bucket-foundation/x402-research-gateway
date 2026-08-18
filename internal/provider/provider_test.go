@@ -24,7 +24,7 @@ func (stubAsset) Assets(NormalizedRecord) []Asset { return nil }
 
 type stubVocab struct{}
 
-func (stubVocab) LookupTerm(string) (NormalizedRecord, bool) { return NormalizedRecord{}, false }
+func (stubVocab) SearchTerms(string, string) ([]Concept, bool) { return nil, false }
 
 func TestAdapter_CapabilitiesReflectsOnlyWhatsImplemented(t *testing.T) {
 	empty := &Adapter{ID: "empty"}
@@ -36,12 +36,12 @@ func TestAdapter_CapabilitiesReflectsOnlyWhatsImplemented(t *testing.T) {
 	}
 
 	full := &Adapter{
-		ID:                 "full",
-		Searcher:           stubSearcher{},
-		Fetcher:            stubFetcher{},
-		AssetProvider:      stubAsset{},
-		VocabularyProvider: stubVocab{},
-		SyncProvider:       stubSync{bulk: true, incremental: true},
+		ID:            "full",
+		Searcher:      stubSearcher{},
+		Fetcher:       stubFetcher{},
+		AssetProvider: stubAsset{},
+		TermSearcher:  stubVocab{},
+		SyncProvider:  stubSync{bulk: true, incremental: true},
 	}
 	for _, c := range []Capability{CapSearch, CapPagination, CapFetch, CapAssets, CapVocabulary, CapBulk, CapIncrementalSync} {
 		if !full.Supports(c) {

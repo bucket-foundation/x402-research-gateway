@@ -2759,3 +2759,431 @@ providers:
     historical_predecessor: "patentsview-legacy"
     notes: "Successor to the retired PatentsView API since 2026-03-20. ODP API key required; further account requirements phase in during June and August 2026. Verification is deployment-blocked until a key is provisioned."
 
+
+  - provider_id: "mesh"
+    name: "MeSH (Medical Subject Headings)"
+    provider_type: controlled_vocabulary
+    status: implemented
+    section: "1.10"
+    fields:
+      - biomedicine
+    coverage: "NLM's controlled biomedical vocabulary: descriptors, qualifiers, hierarchy (broaderDescriptor), and historical terminology via previousIndexing, the field MeSH uses to record a descriptor's prior label(s) and the years it was indexed under them (e.g. today's 'Apoptosis' carries previousIndexing 'Cell Survival (1972-1992)')."
+    corpus_size: "~30K descriptors, current 2026 release"
+    base_url: "https://id.nlm.nih.gov/mesh"
+    documentation_url: "https://id.nlm.nih.gov/mesh/swagger/ui"
+    source_prefix: "mesh"
+    canonical_url: "https://id.nlm.nih.gov/mesh/{id}"
+    tier_fit: "raw (descriptor by id), query (term lookup)"
+    auth: "none"
+    rate_limit: "no published numeric cap; politeness expected"
+    license: "public domain (NLM)"
+    rights:
+      metadata_license: "public domain"
+      redistribution: allowed
+      terms_url: "https://www.nlm.nih.gov/databases/download.html"
+      verified_on: "2026-08-18"
+      notes: "MeSH is a US government (NLM) work, public domain. RDF/JSON served from id.nlm.nih.gov."
+    identifier_schemes:
+      - mesh-descriptor
+    query_language: "label match (exact/contains) via lookup/term"
+    pagination: "none (lookup returns a bounded hit list; no result-set pagination on this endpoint)"
+    bulk_access: true
+    incremental_updates: false
+    sync:
+      modes:
+        - bulk_snapshot
+      snapshots:
+        - url: "https://nlmpubs.nlm.nih.gov/projects/mesh/"
+          format: "RDF/XML, XML"
+          update_frequency: "annual"
+          auth: "none"
+      unverified_reason: "Snapshot index page confirmed reachable 2026-08-18; the per-year download's checksum/size were not individually verified."
+    formats:
+      - json
+      - jsonld
+    last_verified: "2026-08-18"
+    notes: "internal/provider/mesh.go implements TermSearcher, ConceptGetter, Broader (via broaderDescriptor; Narrower unsupported, no cheap reverse index on this REST surface), HistoricalTermProvider (via previousIndexing), CurrentReleaseProvider. GetConcept/SearchTerms honor a release parameter only when empty (current release); id.nlm.nih.gov serves the live annual release only, past years are the separate bulk RDF/XML download recorded under sync above. x402-research-gateway#14, #15."
+
+  - provider_id: "gene-ontology"
+    name: "Gene Ontology (via EBI OLS)"
+    provider_type: ontology
+    status: implemented
+    section: "1.10"
+    fields:
+      - biology
+    coverage: "GO's biological_process, molecular_function, cellular_component branches, served through EBI's Ontology Lookup Service (OLS4). Full OWL subsumption hierarchy (parents/children), synonyms, and deprecation model (is_obsolete + term_replaced_by exact / consider non-exact replacement candidates)."
+    corpus_size: "~85K terms (2026-07-26 release, live-verified)"
+    base_url: "https://www.ebi.ac.uk/ols4/api"
+    documentation_url: "https://www.ebi.ac.uk/ols4/help"
+    source_prefix: "go"
+    canonical_url: "http://purl.obolibrary.org/obo/{id}"
+    tier_fit: "raw (term by IRI), query (search)"
+    auth: "none"
+    rate_limit: "no published numeric cap; politeness expected"
+    license: "CC-BY-4.0"
+    rights:
+      metadata_license: "CC-BY-4.0"
+      redistribution: allowed
+      terms_url: "https://geneontology.org/docs/go-citation-policy/"
+      verified_on: "2026-08-18"
+    identifier_schemes:
+      - obo-iri
+    pagination: "none (search results not paginated by this adapter; OLS supports rows/start server-side)"
+    bulk_access: true
+    incremental_updates: false
+    sync:
+      modes:
+        - dump
+      snapshots:
+        - url: "http://purl.obolibrary.org/obo/go/go-basic.obo"
+          format: "OBO, OWL"
+          update_frequency: "continuous (dated releases)"
+          auth: "none"
+      unverified_reason: "OBO Foundry PURL confirmed reachable in past sessions; not re-fetched this session."
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/ols.go's OLSProvider is generic across any OBO Foundry ontology OLS indexes; this entry registers it configured for Gene Ontology specifically. term_replaced_by is surfaced as Concept.SupersededBy (exact), 'consider' as Concept.Successor (non-exact candidates) -- never merged into one equivalence claim. x402-research-gateway#14, #15."
+
+  - provider_id: "obo-foundry-ols"
+    name: "OBO Foundry ontologies (via EBI OLS)"
+    provider_type: ontology
+    status: researched
+    section: "1.10"
+    fields:
+      - biology
+      - biomedicine
+    coverage: "The wider OBO Foundry catalog (ChEBI, HP, MONDO, UBERON, CL, ENVO, and 250+ others) is served through the same OLS4 REST surface gene-ontology uses. internal/provider/ols.go's OLSProvider takes an Ontology id and works unmodified against any of them; only 'go' has been instantiated and verified this session."
+    base_url: "https://www.ebi.ac.uk/ols4/api"
+    documentation_url: "https://www.ebi.ac.uk/ols4/help"
+    auth: "none"
+    license: "varies per ontology; most OBO Foundry ontologies are CC-BY or CC0"
+    rights:
+      redistribution: "unknown"
+      notes: "License varies per ontology and was not checked per-ontology this session; unknown is not permission. Check each ontology's own licence before instantiating an OLSProvider against it."
+    notes: "Registry-only pending a per-ontology licence and priority pass. Adapter code needs no changes to add another OBO ontology, only a new OLSProvider{Ontology: \"...\"} instance and a registry entry with that ontology's own verified licence."
+
+  - provider_id: "unesco-thesaurus"
+    name: "UNESCO Thesaurus"
+    provider_type: thesaurus
+    status: researched
+    section: "1.10"
+    fields:
+      - humanities
+      - cross_cutting
+    coverage: "SKOS thesaurus covering education, culture, natural and social sciences, communication, and information, in UNESCO's six working languages."
+    documentation_url: "https://vocabularies.unesco.org/browser/thesaurus/en/"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "Publishes a SKOS download and a browsable SPARQL endpoint per its documentation; not re-verified live this session. Registry-only."
+
+  - provider_id: "msc2020"
+    name: "Mathematics Subject Classification 2020"
+    provider_type: classification
+    status: researched
+    section: "1.10"
+    fields:
+      - mathematics
+    coverage: "AMS/zbMATH's subject classification scheme for mathematics literature, current 2020 edition; superseded MSC2010 and MSC2000, both still load-bearing on older literature."
+    documentation_url: "https://zbmath.org/static/msc2020.pdf"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "zbmath (provider_id: zbmath-open-rest, already implemented) carries MSC codes per-record; this entry registers MSC2020 itself as the classification standard those codes are drawn from, not yet as an independently queryable vocabulary. MSC2010/MSC2000 editions are the #15 historical-versioning case for this vocabulary and are not yet modeled."
+
+  - provider_id: "getty-aat"
+    name: "Getty Art & Architecture Thesaurus"
+    provider_type: thesaurus
+    status: discovered
+    section: "1.10"
+    fields:
+      - humanities
+    coverage: "Controlled vocabulary for art, architecture, and material culture terminology."
+    documentation_url: "https://www.getty.edu/research/tools/vocabularies/aat/"
+    notes: "Discovered, not yet researched for API access or licence terms."
+
+  - provider_id: "getty-tgn"
+    name: "Getty Thesaurus of Geographic Names"
+    provider_type: thesaurus
+    status: discovered
+    section: "1.10"
+    fields:
+      - humanities
+    coverage: "Controlled vocabulary of place names."
+    documentation_url: "https://www.getty.edu/research/tools/vocabularies/tgn/"
+    notes: "Discovered, not yet researched for API access or licence terms."
+
+  - provider_id: "getty-ulan"
+    name: "Getty Union List of Artist Names"
+    provider_type: thesaurus
+    status: discovered
+    section: "1.10"
+    fields:
+      - humanities
+    coverage: "Controlled vocabulary of artist and cultural-figure names."
+    documentation_url: "https://www.getty.edu/research/tools/vocabularies/ulan/"
+    notes: "Discovered, not yet researched for API access or licence terms."
+
+  - provider_id: "loc-vocabularies"
+    name: "Library of Congress Linked Data Service vocabularies"
+    provider_type: thesaurus
+    status: researched
+    section: "1.10"
+    fields:
+      - humanities
+      - cross_cutting
+    coverage: "LCSH, LCNAF, and other LOC controlled vocabularies, served as linked data (id.loc.gov)."
+    documentation_url: "https://id.loc.gov/"
+    license: "public domain (US federal work)"
+    rights:
+      metadata_license: "public domain"
+      redistribution: allowed
+      notes: "LOC vocabularies are US federal government works; not independently re-verified this session."
+    notes: "id.loc.gov is a well-documented public linked-data API; registry-only pending an adapter."
+
+  - provider_id: "bibframe"
+    name: "BIBFRAME"
+    provider_type: standard
+    status: discovered
+    section: "1.10"
+    fields:
+      - humanities
+    coverage: "Library of Congress's bibliographic linked-data model, successor to MARC."
+    documentation_url: "https://www.loc.gov/bibframe/"
+    notes: "A document/data-model standard, not a searchable literature source. Registered as a standard per #14's requirement that standards be classified separately from searchable sources."
+
+  - provider_id: "obo-foundry-catalog"
+    name: "OBO Foundry (catalog)"
+    provider_type: standard
+    status: registered
+    section: "1.10"
+    fields:
+      - biology
+      - biomedicine
+    coverage: "The OBO Foundry principles and ontology registry itself, distinct from the individual member ontologies (see obo-foundry-ols for the shared access API)."
+    documentation_url: "http://obofoundry.org/"
+    notes: "Catalog/standards-body entry; not a queryable data source in its own right."
+
+  - provider_id: "umls"
+    name: "UMLS (Unified Medical Language System)"
+    provider_type: controlled_vocabulary
+    status: researched
+    section: "1.10"
+    fields:
+      - biomedicine
+    coverage: "NLM's meta-thesaurus unifying ~200 biomedical vocabularies (SNOMED CT, MeSH, LOINC, RxNorm and more) under shared concept identifiers (CUIs)."
+    documentation_url: "https://www.nlm.nih.gov/research/umls/index.html"
+    auth: "account + UMLS Metathesaurus License Agreement required"
+    license: "restricted; UMLS License Agreement, free but requires an account and acceptance of terms"
+    rights:
+      redistribution: "unknown"
+      terms_url: "https://www.nlm.nih.gov/databases/umls.html"
+      notes: "Access requires a signed UMLS Metathesaurus License Agreement and an NLM account (free, but gated). Not implementable without provisioning credentials nobody has yet; the gateway does not invent them. Registered so the constraint is visible before a caller assumes open access."
+
+  - provider_id: "snomed-ct"
+    name: "SNOMED CT"
+    provider_type: controlled_vocabulary
+    status: researched
+    section: "1.10"
+    fields:
+      - biomedicine
+    coverage: "Comprehensive clinical terminology: diseases, findings, procedures, and more."
+    documentation_url: "https://www.snomed.org/"
+    license: "territorial; free within SNOMED International member countries via an affiliate licence, paid/restricted elsewhere"
+    rights:
+      redistribution: "unknown"
+      terms_url: "https://www.snomed.org/snomed-ct/get-snomed"
+      notes: "Licensing is per-country membership status, not a single global grant. The gateway does not serve SNOMED CT content to a jurisdiction or account not licensed for it; enforcing that requires knowing the caller's licensing status, which is out of scope until an adapter and an access-control design exist together."
+
+  - provider_id: "loinc"
+    name: "LOINC"
+    provider_type: controlled_vocabulary
+    status: researched
+    section: "1.10"
+    fields:
+      - biomedicine
+    coverage: "Laboratory and clinical observation codes."
+    documentation_url: "https://loinc.org/"
+    auth: "free account required (LOINC License)"
+    license: "free, account-gated"
+    rights:
+      redistribution: "unknown"
+      terms_url: "https://loinc.org/license/"
+      notes: "Free but requires accepting the LOINC license and creating an account; not implementable without provisioning credentials."
+
+  - provider_id: "iupac-gold-book"
+    name: "IUPAC Gold Book"
+    provider_type: nomenclature
+    status: discovered
+    section: "1.10"
+    fields:
+      - chemistry
+    coverage: "IUPAC's Compendium of Chemical Terminology, canonical chemical nomenclature definitions."
+    documentation_url: "https://goldbook.iupac.org/"
+    notes: "Discovered, not yet researched for API access or licence terms."
+
+  - provider_id: "agrovoc"
+    name: "AGROVOC"
+    provider_type: thesaurus
+    status: researched
+    section: "1.10"
+    fields:
+      - agriculture
+    coverage: "FAO's multilingual thesaurus covering food, nutrition, agriculture, fisheries, forestry, and environment."
+    documentation_url: "https://agrovoc.fao.org/browse/agrovoc/en/"
+    license: "CC-BY-IGO-3.0, per FAO's published terms"
+    rights:
+      metadata_license: "CC-BY-IGO-3.0"
+      redistribution: allowed
+      terms_url: "https://www.fao.org/contact-us/terms/en/"
+      notes: "FAO publishes AGROVOC under CC-BY-IGO-3.0; not independently re-verified this session against the vocabulary's own terms page."
+    notes: "Publishes a SPARQL endpoint and REST search per its documentation; registry-only pending adapter work."
+
+  - provider_id: "cf-standard-names"
+    name: "CF Standard Names"
+    provider_type: controlled_vocabulary
+    status: registered
+    section: "1.10"
+    fields:
+      - earth_science
+    coverage: "Climate and Forecast metadata convention's controlled vocabulary for naming physical quantities in earth-science datasets."
+    documentation_url: "https://cfconventions.org/standard-names.html"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "Published as a versioned XML table; registry-only."
+
+  - provider_id: "nasa-gcmd-keywords"
+    name: "NASA GCMD Keywords"
+    provider_type: controlled_vocabulary
+    status: registered
+    section: "1.10"
+    fields:
+      - earth_science
+    coverage: "NASA Global Change Master Directory's Earth Science Keywords, used to tag earth-observation datasets. Versioned periodic releases (#15's earth-science versioning case)."
+    documentation_url: "https://gcmd.earthdata.nasa.gov/KeywordViewer/"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "Registry-only pending adapter work and licence confirmation."
+
+  - provider_id: "sweet-ontology"
+    name: "SWEET (Semantic Web for Earth and Environmental Terminology)"
+    provider_type: ontology
+    status: discovered
+    section: "1.10"
+    fields:
+      - earth_science
+    coverage: "OWL ontology suite for earth-system science concepts."
+    documentation_url: "https://sweetontology.net/"
+    notes: "Discovered, not yet researched for access or licence terms."
+
+  - provider_id: "geosciml"
+    name: "GeoSciML"
+    provider_type: standard
+    status: discovered
+    section: "1.10"
+    fields:
+      - earth_science
+    coverage: "Geoscience data-exchange standard and associated vocabularies (CGI vocabularies)."
+    documentation_url: "http://www.geosciml.org/"
+    notes: "Discovered, not yet researched for access or licence terms."
+
+  - provider_id: "iucr-cif-dictionaries"
+    name: "IUCr CIF Dictionaries"
+    provider_type: document_standard
+    status: registered
+    section: "1.10"
+    fields:
+      - materials_science
+      - chemistry
+    coverage: "Crystallographic Information Framework data dictionaries: the controlled vocabulary and schema crystal-structure data (CIF files) are validated against."
+    documentation_url: "https://www.iucr.org/resources/cif/dictionaries"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "A document/schema standard the gateway's #17 materials-database work (CIF-shaped records) will validate against, not a searchable literature source. Registry-only."
+
+  - provider_id: "nomad-metainfo"
+    name: "NOMAD MetaInfo"
+    provider_type: document_standard
+    status: registered
+    section: "1.10"
+    fields:
+      - materials_science
+    coverage: "NOMAD's schema for describing computational materials-science data and metadata."
+    documentation_url: "https://nomad-lab.eu/prod/v1/staging/docs/metainfo.html"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "Schema standard; the NOMAD data repository itself is a separate #17 candidate. Registry-only."
+
+  - provider_id: "optimade"
+    name: "OPTIMADE"
+    provider_type: standard
+    status: registered
+    section: "1.10"
+    fields:
+      - materials_science
+    coverage: "Open Databases Integration for Materials Design API specification, a common query/response standard adopted by NOMAD, Materials Project, AFLOW, OQMD, and other materials databases."
+    documentation_url: "https://www.optimade.org/"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "A federation standard rather than a single data source: any materials database implementing it (a #17/#16 candidate) can be queried through one client shape. Registry-only until a specific OPTIMADE-speaking database is chosen to adapt against."
+
+  - provider_id: "jats"
+    name: "JATS (Journal Article Tag Suite)"
+    provider_type: document_standard
+    status: registered
+    section: "1.10"
+    fields:
+      - cross_cutting
+    coverage: "NISO/NLM XML standard for tagging journal article content, the structured-full-text format PMC and several #13 Wave-2 providers publish in."
+    documentation_url: "https://jats.nlm.nih.gov/"
+    license: "public domain (US federal/NISO standard, freely published)"
+    rights:
+      metadata_license: "public domain"
+      redistribution: allowed
+    notes: "Document-semantics standard, not a searchable source; registered per #14's requirement that standards be classified separately from vocabularies and literature providers."
+
+  - provider_id: "tei"
+    name: "TEI (Text Encoding Initiative)"
+    provider_type: document_standard
+    status: discovered
+    section: "1.10"
+    fields:
+      - humanities
+    coverage: "XML standard for encoding literary and linguistic texts, widely used in digital humanities editions."
+    documentation_url: "https://tei-c.org/"
+    notes: "Discovered, not yet researched for gateway relevance beyond registration as a standard."
+
+  - provider_id: "mathml"
+    name: "MathML"
+    provider_type: mathematical_semantics_standard
+    status: registered
+    section: "1.10"
+    fields:
+      - mathematics
+    coverage: "W3C standard for encoding mathematical notation and semantics in XML."
+    documentation_url: "https://www.w3.org/TR/MathML3/"
+    license: "W3C document licence (open)"
+    rights:
+      redistribution: allowed
+      terms_url: "https://www.w3.org/Consortium/Legal/copyright-software"
+    notes: "Mathematical-semantics standard, not a searchable source; several #17 candidates (arXiv full text, OpenMath-adjacent databases) embed or reference MathML."
+
+  - provider_id: "openmath-cd"
+    name: "OpenMath Content Dictionaries"
+    provider_type: mathematical_semantics_standard
+    status: registered
+    section: "1.10"
+    fields:
+      - mathematics
+    coverage: "OpenMath's content dictionaries: formally defined mathematical symbols and their semantics, independent of notation. Named explicitly in #14's source-family list."
+    documentation_url: "https://www.openmath.org/cd/"
+    license: "not independently confirmed this session"
+    rights:
+      redistribution: "unknown"
+    notes: "Document/semantics standard rather than a searchable source. Published as versioned XML content dictionaries; registry-only."

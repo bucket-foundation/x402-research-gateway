@@ -19,12 +19,14 @@
 
 ## Coverage
 
-110 sources registered · reviewed 2026-04-21
+137 sources registered · reviewed 2026-04-21
 
 | Lifecycle status | Sources |
 |---|---|
-| `researched` | 81 |
-| `implemented` | 11 |
+| `discovered` | 8 |
+| `researched` | 89 |
+| `registered` | 9 |
+| `implemented` | 13 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -35,11 +37,13 @@
 | `citation_graph` | 3 |
 | `full_text_repository` | 13 |
 | `preprint_repository` | 4 |
-| `ontology` | 1 |
-| `controlled_vocabulary` | 1 |
-| `classification` | 1 |
+| `ontology` | 4 |
+| `controlled_vocabulary` | 7 |
+| `thesaurus` | 6 |
+| `classification` | 2 |
+| `nomenclature` | 1 |
 | `historical_vocabulary` | 1 |
-| `standard` | 1 |
+| `standard` | 5 |
 | `dataset_repository` | 8 |
 | `software_repository` | 1 |
 | `patent_database` | 3 |
@@ -51,6 +55,8 @@
 | `astronomical_database` | 8 |
 | `earth_science_database` | 13 |
 | `experimental_registry` | 1 |
+| `document_standard` | 4 |
+| `mathematical_semantics_standard` | 2 |
 
 ---
 
@@ -68,6 +74,38 @@
 | **PolyDB** | `researched` | `mathematical_object_database` | Polytopes / discrete geometry database | ~100k objects | `https://db.polymake.org/` | none | polite | CC-BY | `allowed` | raw | `polydb` | `https://polydb.org/explore/{id}` | — | Niche but canon-tier for discrete geometry. Endpoints/format: (Mongo HTTP bridge) |
 | **LMFDB** | `researched` | `mathematical_object_database` | L-functions, modular forms, number-theory objects | 10M+ objects | `https://www.lmfdb.org/api/` | none | polite | CC-BY-SA | `allowed` | raw, query | `lmfdb` | `https://www.lmfdb.org/{path}` | — | Number-theory canon. API still beta; HTML scrape fallback viable. |
 | **FindStat** | `researched` | `mathematical_object_database` | Combinatorial statistics / bijections | 1k+ statistics | `http://www.findstat.org/api/` | none | polite | CC-BY-SA | `allowed` | raw | `findstat` | `http://www.findstat.org/{id}` | — | Niche but cite-worthy. |
+
+### 1.10 — Vocabularies, ontologies, and semantic standards
+
+| Name | Status | Type | Domain coverage | Corpus size | Base URL / endpoint | Auth | Rate limit (free) | License | Redistribution | Tier fit | source_prefix | Canonical URL template | Last verified | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **MeSH (Medical Subject Headings)** | `implemented` | `controlled_vocabulary` | NLM's controlled biomedical vocabulary: descriptors, qualifiers, hierarchy (broaderDescriptor), and historical terminology via previousIndexing, the field MeSH uses to record a descriptor's prior label(s) and the years it was indexed under them (e.g. today's 'Apoptosis' carries previousIndexing 'Cell Survival (1972-1992)'). | ~30K descriptors, current 2026 release | `https://id.nlm.nih.gov/mesh` | none | no published numeric cap; politeness expected | public domain (NLM) | `allowed` | raw (descriptor by id), query (term lookup) | `mesh` | `https://id.nlm.nih.gov/mesh/{id}` | 2026-08-18 | internal/provider/mesh.go implements TermSearcher, ConceptGetter, Broader (via broaderDescriptor; Narrower unsupported, no cheap reverse index on this REST surface), HistoricalTermProvider (via previousIndexing), CurrentReleaseProvider. GetConcept/SearchTerms honor a release parameter only when empty (current release); id.nlm.nih.gov serves the live annual release only, past years are the separate bulk RDF/XML download recorded under sync above. x402-research-gateway#14, #15. |
+| **Gene Ontology (via EBI OLS)** | `implemented` | `ontology` | GO's biological_process, molecular_function, cellular_component branches, served through EBI's Ontology Lookup Service (OLS4). Full OWL subsumption hierarchy (parents/children), synonyms, and deprecation model (is_obsolete + term_replaced_by exact / consider non-exact replacement candidates). | ~85K terms (2026-07-26 release, live-verified) | `https://www.ebi.ac.uk/ols4/api` | none | no published numeric cap; politeness expected | CC-BY-4.0 | `allowed` | raw (term by IRI), query (search) | `go` | `http://purl.obolibrary.org/obo/{id}` | 2026-08-18 | internal/provider/ols.go's OLSProvider is generic across any OBO Foundry ontology OLS indexes; this entry registers it configured for Gene Ontology specifically. term_replaced_by is surfaced as Concept.SupersededBy (exact), 'consider' as Concept.Successor (non-exact candidates) -- never merged into one equivalence claim. x402-research-gateway#14, #15. |
+| **OBO Foundry ontologies (via EBI OLS)** | `researched` | `ontology` | The wider OBO Foundry catalog (ChEBI, HP, MONDO, UBERON, CL, ENVO, and 250+ others) is served through the same OLS4 REST surface gene-ontology uses. internal/provider/ols.go's OLSProvider takes an Ontology id and works unmodified against any of them; only 'go' has been instantiated and verified this session. | — | `https://www.ebi.ac.uk/ols4/api` | none | — | varies per ontology; most OBO Foundry ontologies are CC-BY or CC0 | `unknown` | — | — | — | — | Registry-only pending a per-ontology licence and priority pass. Adapter code needs no changes to add another OBO ontology, only a new OLSProvider{Ontology: "..."} instance and a registry entry with that ontology's own verified licence. |
+| **UNESCO Thesaurus** | `researched` | `thesaurus` | SKOS thesaurus covering education, culture, natural and social sciences, communication, and information, in UNESCO's six working languages. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | Publishes a SKOS download and a browsable SPARQL endpoint per its documentation; not re-verified live this session. Registry-only. |
+| **Mathematics Subject Classification 2020** | `researched` | `classification` | AMS/zbMATH's subject classification scheme for mathematics literature, current 2020 edition; superseded MSC2010 and MSC2000, both still load-bearing on older literature. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | zbmath (provider_id: zbmath-open-rest, already implemented) carries MSC codes per-record; this entry registers MSC2020 itself as the classification standard those codes are drawn from, not yet as an independently queryable vocabulary. MSC2010/MSC2000 editions are the #15 historical-versioning case for this vocabulary and are not yet modeled. |
+| **Getty Art & Architecture Thesaurus** | `discovered` | `thesaurus` | Controlled vocabulary for art, architecture, and material culture terminology. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for API access or licence terms. |
+| **Getty Thesaurus of Geographic Names** | `discovered` | `thesaurus` | Controlled vocabulary of place names. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for API access or licence terms. |
+| **Getty Union List of Artist Names** | `discovered` | `thesaurus` | Controlled vocabulary of artist and cultural-figure names. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for API access or licence terms. |
+| **Library of Congress Linked Data Service vocabularies** | `researched` | `thesaurus` | LCSH, LCNAF, and other LOC controlled vocabularies, served as linked data (id.loc.gov). | — | — | — | — | public domain (US federal work) | `allowed` | — | — | — | — | id.loc.gov is a well-documented public linked-data API; registry-only pending an adapter. |
+| **BIBFRAME** | `discovered` | `standard` | Library of Congress's bibliographic linked-data model, successor to MARC. | — | — | — | — | — | `unknown` | — | — | — | — | A document/data-model standard, not a searchable literature source. Registered as a standard per #14's requirement that standards be classified separately from searchable sources. |
+| **OBO Foundry (catalog)** | `registered` | `standard` | The OBO Foundry principles and ontology registry itself, distinct from the individual member ontologies (see obo-foundry-ols for the shared access API). | — | — | — | — | — | `unknown` | — | — | — | — | Catalog/standards-body entry; not a queryable data source in its own right. |
+| **UMLS (Unified Medical Language System)** | `researched` | `controlled_vocabulary` | NLM's meta-thesaurus unifying ~200 biomedical vocabularies (SNOMED CT, MeSH, LOINC, RxNorm and more) under shared concept identifiers (CUIs). | — | — | account + UMLS Metathesaurus License Agreement required | — | restricted; UMLS License Agreement, free but requires an account and acceptance of terms | `unknown` | — | — | — | — | — |
+| **SNOMED CT** | `researched` | `controlled_vocabulary` | Comprehensive clinical terminology: diseases, findings, procedures, and more. | — | — | — | — | territorial; free within SNOMED International member countries via an affiliate licence, paid/restricted elsewhere | `unknown` | — | — | — | — | — |
+| **LOINC** | `researched` | `controlled_vocabulary` | Laboratory and clinical observation codes. | — | — | free account required (LOINC License) | — | free, account-gated | `unknown` | — | — | — | — | — |
+| **IUPAC Gold Book** | `discovered` | `nomenclature` | IUPAC's Compendium of Chemical Terminology, canonical chemical nomenclature definitions. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for API access or licence terms. |
+| **AGROVOC** | `researched` | `thesaurus` | FAO's multilingual thesaurus covering food, nutrition, agriculture, fisheries, forestry, and environment. | — | — | — | — | CC-BY-IGO-3.0, per FAO's published terms | `allowed` | — | — | — | — | Publishes a SPARQL endpoint and REST search per its documentation; registry-only pending adapter work. |
+| **CF Standard Names** | `registered` | `controlled_vocabulary` | Climate and Forecast metadata convention's controlled vocabulary for naming physical quantities in earth-science datasets. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | Published as a versioned XML table; registry-only. |
+| **NASA GCMD Keywords** | `registered` | `controlled_vocabulary` | NASA Global Change Master Directory's Earth Science Keywords, used to tag earth-observation datasets. Versioned periodic releases (#15's earth-science versioning case). | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | Registry-only pending adapter work and licence confirmation. |
+| **SWEET (Semantic Web for Earth and Environmental Terminology)** | `discovered` | `ontology` | OWL ontology suite for earth-system science concepts. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for access or licence terms. |
+| **GeoSciML** | `discovered` | `standard` | Geoscience data-exchange standard and associated vocabularies (CGI vocabularies). | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for access or licence terms. |
+| **IUCr CIF Dictionaries** | `registered` | `document_standard` | Crystallographic Information Framework data dictionaries: the controlled vocabulary and schema crystal-structure data (CIF files) are validated against. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | A document/schema standard the gateway's #17 materials-database work (CIF-shaped records) will validate against, not a searchable literature source. Registry-only. |
+| **NOMAD MetaInfo** | `registered` | `document_standard` | NOMAD's schema for describing computational materials-science data and metadata. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | Schema standard; the NOMAD data repository itself is a separate #17 candidate. Registry-only. |
+| **OPTIMADE** | `registered` | `standard` | Open Databases Integration for Materials Design API specification, a common query/response standard adopted by NOMAD, Materials Project, AFLOW, OQMD, and other materials databases. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | A federation standard rather than a single data source: any materials database implementing it (a #17/#16 candidate) can be queried through one client shape. Registry-only until a specific OPTIMADE-speaking database is chosen to adapt against. |
+| **JATS (Journal Article Tag Suite)** | `registered` | `document_standard` | NISO/NLM XML standard for tagging journal article content, the structured-full-text format PMC and several #13 Wave-2 providers publish in. | — | — | — | — | public domain (US federal/NISO standard, freely published) | `allowed` | — | — | — | — | Document-semantics standard, not a searchable source; registered per #14's requirement that standards be classified separately from vocabularies and literature providers. |
+| **TEI (Text Encoding Initiative)** | `discovered` | `document_standard` | XML standard for encoding literary and linguistic texts, widely used in digital humanities editions. | — | — | — | — | — | `unknown` | — | — | — | — | Discovered, not yet researched for gateway relevance beyond registration as a standard. |
+| **MathML** | `registered` | `mathematical_semantics_standard` | W3C standard for encoding mathematical notation and semantics in XML. | — | — | — | — | W3C document licence (open) | `allowed` | — | — | — | — | Mathematical-semantics standard, not a searchable source; several #17 candidates (arXiv full text, OpenMath-adjacent databases) embed or reference MathML. |
+| **OpenMath Content Dictionaries** | `registered` | `mathematical_semantics_standard` | OpenMath's content dictionaries: formally defined mathematical symbols and their semantics, independent of notation. Named explicitly in #14's source-family list. | — | — | — | — | not independently confirmed this session | `unknown` | — | — | — | — | Document/semantics standard rather than a searchable source. Published as versioned XML content dictionaries; registry-only. |
 
 ### 1.2 — Physics
 

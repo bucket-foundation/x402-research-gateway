@@ -2258,23 +2258,36 @@ providers:
   - provider_id: "orcid-public-api"
     name: "ORCID Public API"
     provider_type: author_registry
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "Author identifiers"
+    coverage: "Author/researcher identity: ORCID iD, name, external identifiers (Scopus Author ID, ResearcherID, LinkedIn, GitHub…), employment affiliations, and a works summary list for cross-referencing back to DOI/arXiv-resolved works."
     corpus_size: "~20M"
-    base_url: "https://pub.orcid.org/v3.0/{orcid}"
+    base_url: "https://pub.orcid.org/v3.0"
     source_prefix: "orcid"
     canonical_url: "https://orcid.org/{id}"
-    tier_fit: "raw"
-    auth: "none (2-legged oauth for bulk)"
-    rate_limit: "polite"
+    tier_fit: "raw (fetch by ORCID iD), query (expanded-search)"
+    auth: "oauth2_client_credentials (RFC 6749 §4.4, grant_type=client_credentials, scope=/read-public, token endpoint https://orcid.org/oauth/token). No unauthenticated tier on the public API as of 2026-08-18; every route requires the minted token. Token reported valid 631138518s (~20 years) and cached for that lifetime by internal/auth.ClientCredentialsSource rather than re-minted per request."
+    rate_limit: "no published numeric cap; ORCID's guidance is polite/reasonable use per client credential"
     license: "CC0"
     rights:
       metadata_license: "CC0"
       redistribution: allowed
-    notes: "Person-graph primitive."
+      verified_on: "2026-08-18"
+      notes: "The public API serves only 'Everyone'-visibility record data, which ORCID's Terms of Use dedicate to the public domain under CC0-1.0. Same grant as the annual public data file."
+    identifier_schemes:
+      - orcid
+    pagination: "offset via start/rows on expanded-search"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    route_ids:
+      - orcid-fetch
+      - orcid-search
+    notes: "Person-graph primitive; the gateway's first credentialed provider. Bulk access exists only as ORCID's separate annual CC0 public-data-file product (info.orcid.org), which this adapter's live routes do not call — recorded here, not claimed as a live capability."
 
   - provider_id: "ror"
     name: "ROR (Research Org Registry)"

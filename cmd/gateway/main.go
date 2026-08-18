@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gianyrox/x402-research-gateway/internal/auth"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/handler"
 )
@@ -57,6 +58,11 @@ func main() {
 		"network", cfg.Network,
 		"recipient", cfg.RecipientAddress,
 	)
+
+	// Credentialed providers (x402-research-gateway#29): register token
+	// sources before the handler is built, since proxyToUpstream looks
+	// AuthTokenSource up on the first request a route naming it receives.
+	auth.RegisterFromEnv(&http.Client{Timeout: 20 * time.Second})
 
 	h := handler.NewHandler(cfg)
 

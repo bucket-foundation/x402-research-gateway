@@ -47,6 +47,16 @@ const (
 	// drop them the way an unregistered scheme would.
 	SchemeDOAJ     Scheme = "doaj"
 	SchemeOpenAIRE Scheme = "openaire"
+	// SchemePubChemCID, SchemeUniProt, SchemeGBIF, SchemeOSF, and
+	// SchemeFigshare (x402-research-gateway#16) are opaque provider-local
+	// ids, registered on the same "trim only" precedent as SchemeDOAJ and
+	// SchemeOpenAIRE above.
+	SchemePubChemCID    Scheme = "pubchem-cid"
+	SchemeUniProt       Scheme = "uniprot"
+	SchemeGBIF          Scheme = "gbif"
+	SchemeOSF           Scheme = "osf"
+	SchemeFigshare      Scheme = "figshare"
+	SchemeNASAExoplanet Scheme = "nasa-exoplanet"
 )
 
 // Identifier is one identifier under one scheme. Value is the normalized
@@ -242,6 +252,21 @@ func init() {
 		}
 		return v, "", true
 	})
+	// PubChem CIDs, UniProt accessions, GBIF keys, OSF node ids, figshare
+	// article ids, and NASA Exoplanet Archive planet names
+	// (x402-research-gateway#16) are each opaque provider-local ids; no
+	// normalization beyond trimming applies, matching the DOAJ/OpenAIRE
+	// precedent above.
+	for _, s := range []Scheme{SchemePubChemCID, SchemeUniProt, SchemeGBIF, SchemeOSF, SchemeFigshare, SchemeNASAExoplanet} {
+		s := s
+		RegisterScheme(s, func(raw string) (string, string, bool) {
+			v := strings.TrimSpace(raw)
+			if v == "" {
+				return "", "", false
+			}
+			return v, "", true
+		})
+	}
 }
 
 // Parse sniffs the scheme from a raw string and normalizes under it. Order

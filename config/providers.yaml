@@ -440,9 +440,17 @@ providers:
     rights:
       metadata_license: "public-domain (US-gov)"
       redistribution: allowed
+      terms_url: "https://pubchem.ncbi.nlm.nih.gov/"
+      verified_on: "2026-08-18"
+      notes: "PubChem's own site states data is freely available in the public domain, re-verified live 2026-08-18."
+    identifier_schemes:
+      - name
+      - cid
+      - pubchem-cid
     route_ids:
       - pubchem-compound
-    notes: "Keep. Reuse existing parser."
+    last_verified: "2026-08-18"
+    notes: "internal/provider/pubchem.go's PubChemNormalizer, added x402-research-gateway#16, reads the shared PropertyTable.Properties shape both the name-keyed and CID-keyed lookups return; the deployed pubchem-compound route stays Fetcher-only (pre-#16 behavior, no wire-format change for live traffic). A second adapter, PubChemCompoundByCIDAdapter (id pubchem-compound-cid), carries the new Normalizer/rights/descriptor capability over the same upstream keyed by CID instead of name; it is implemented and registered but has no route in config/routes.yaml yet."
 
   - provider_id: "chembl"
     name: "ChEMBL"
@@ -458,11 +466,13 @@ providers:
     canonical_url: "https://www.ebi.ac.uk/chembl/compound_report_card/{chembl_id}/"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
+    rate_limit: "not independently re-verified this pass (endpoint unreachable, see below)"
     license: "CC-BY-SA"
     rights:
       metadata_license: "CC-BY-SA"
       redistribution: allowed
+      verified_on: "2026-08-18"
+      notes: "Live check this pass: GET .../molecule/CHEMBL25.json and GET .../molecule.json?molecule_chembl_id=CHEMBL25 both returned HTTP 500 with an EBI framework error page, not JSON, on 2026-08-18. Left researched rather than promoted, and left as a candidate for a future adapter pass once this is confirmed to be a transient EBI outage rather than an API path change (BioModels' own www.ebi.ac.uk host redirected entirely to biomodels.org during x402-research-gateway#17, a precedent for EBI relocating a legacy path)."
     notes: "Complement to PubChem, bioactivity-focused."
 
   - provider_id: "chemspider"
@@ -507,6 +517,9 @@ providers:
     rights:
       metadata_license: "CC0"
       redistribution: allowed
+      verified_on: "2026-08-18"
+      notes: "GET https://data.rcsb.org/rest/v1/core/entry/4HHB confirmed live 200 JSON, keyless, on 2026-08-18."
+    last_verified: "2026-08-18"
     notes: "GraphQL also at `https://data.rcsb.org/graphql`. Endpoints/format: search at https://search.rcsb.org/rcsbsearch/v2/query"
 
   - provider_id: "pdbe"
@@ -528,6 +541,9 @@ providers:
     rights:
       metadata_license: "CC0"
       redistribution: allowed
+      verified_on: "2026-08-18"
+      notes: "GET https://www.ebi.ac.uk/pdbe/api/pdb/entry/summary/1cbs confirmed live 200 JSON, keyless, on 2026-08-18."
+    last_verified: "2026-08-18"
     notes: "European mirror, richer annotations."
 
   - provider_id: "massbank"
@@ -915,6 +931,65 @@ providers:
       notes: "Excluded (no_api). Not operated by the gateway. Research note retained in `notes`."
     notes: "Do NOT integrate. No API, ToS forbids scraping."
 
+  - provider_id: "figshare"
+    name: "Figshare"
+    provider_type: dataset_repository
+    status: implemented
+    section: "1.4"
+    fields:
+      - information_computation
+    coverage: "General-purpose research output repository: datasets, software, posters, figures, preprints. Each article states its own licence from a controlled vocabulary, read per record rather than declared once for the whole provider."
+    corpus_size: "millions of items across institutional and Digital Science-hosted portfolios (no single published total)"
+    base_url: "https://api.figshare.com/v2/articles"
+    source_prefix: "figshare"
+    canonical_url: "https://doi.org/{doi}"
+    tier_fit: "raw, query"
+    auth: "none for public search/read; OAuth 2.0 or personal token optional for private resources"
+    rate_limit: "no automatic ceiling; docs recommend no more than 1 request/second and warn of throttling on detected abuse, verified 2026-08-18"
+    license: "per-article (controlled vocabulary: CC0, CC BY variants, MIT, GPL, and others)"
+    rights:
+      metadata_license: "unknown (search-summary shape carries no license field)"
+      content_license: "per article, from the license.name field on the single-article shape"
+      redistribution: unknown
+      terms_url: "https://docs.figshare.com/"
+      verified_on: "2026-08-18"
+      notes: "A search-result summary omits license entirely; only the single-article fetch carries {value,name,url}. CC0 and CC BY (non-NC, non-ND) report allowed per record; every other name, including GPL and CC BY-NC, reports unknown/not-allowed rather than assumed open."
+    identifier_schemes:
+      - figshare
+      - doi
+    pagination: "page"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/figshare.go's FigshareNormalizer handles the search-list shape (a bare array) and the single-article fetch shape (the article itself, no envelope), x402-research-gateway#16. FigshareSearchAdapter and FigshareFetchAdapter are implemented and registered but have no route in config/routes.yaml yet."
+
+  - provider_id: "dryad"
+    name: "Dryad"
+    provider_type: dataset_repository
+    status: researched
+    section: "1.4"
+    fields:
+      - information_computation
+    coverage: "Curated general-purpose research data repository, strongest in ecology/evolution and biomedical data underlying a publication."
+    corpus_size: "~50k+ datasets (published counts vary; not independently re-tallied this pass)"
+    base_url: "https://datadryad.org/api/v2/search"
+    source_prefix: "dryad"
+    canonical_url: "https://doi.org/{doi}"
+    tier_fit: "raw, query"
+    auth: "none for public read"
+    rate_limit: "no numeric ceiling found this pass"
+    license: "CC0 (metadata and most datasets)"
+    rights:
+      metadata_license: "CC0 (per Dryad's own stated default; the terms page itself was not re-fetched this pass)"
+      redistribution: unknown
+      verified_on: "2026-08-18"
+      notes: "The search endpoint itself was confirmed live and keyless 2026-08-18 (GET datadryad.org/api/v2/search returns 200 JSON, no auth). Dryad's documented default is CC0 for deposited datasets, but this pass did not re-fetch datadryad.org's terms page to confirm the current text, so redistribution is left unknown rather than asserted allowed on a carried-over claim. Flagged unverified-this-pass."
+    identifier_schemes:
+      - doi
+    notes: "Registry-only this pass (x402-research-gateway#16): a keyless JSON REST API (datadryad.org/api/v2/search?q=...), confirmed live 2026-08-18, a plausible future real adapter but not one of this session's committed six. No adapter code exists yet."
+
   - provider_id: "pubmed"
     name: "PubMed (NCBI E-utilities)"
     provider_type: scholarly_metadata
@@ -1067,23 +1142,35 @@ providers:
   - provider_id: "uniprot"
     name: "UniProt"
     provider_type: biological_database
-    status: researched
+    status: implemented
     section: "1.5"
     fields:
       - biophysics_life_sciences
-    coverage: "Protein sequences + annotation"
+    coverage: "Curated (Swiss-Prot) and unreviewed (TrEMBL) protein sequences and annotation."
     corpus_size: "~250M entries"
-    base_url: "https://rest.uniprot.org/uniprotkb/search?query=...&format=json"
+    base_url: "https://rest.uniprot.org/uniprotkb/search"
     source_prefix: "uniprot"
     canonical_url: "https://www.uniprot.org/uniprotkb/{id}/entry"
-    tier_fit: "raw (`/{accession}`), query"
+    tier_fit: "raw (`/{accession}.json`), query"
     auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY"
+    rate_limit: "no numeric ceiling found this pass; treated as polite"
+    license: "CC-BY-4.0"
     rights:
-      metadata_license: "CC-BY"
+      metadata_license: "CC-BY-4.0"
       redistribution: allowed
-    notes: "Massive, well-versioned REST."
+      terms_url: "https://www.uniprot.org/help/license"
+      verified_on: "2026-08-18"
+      notes: "The REST endpoints themselves were confirmed live and keyless 2026-08-18. The CC BY 4.0 licence designation is carried forward from this entry's prior research rather than freshly re-read this pass: uniprot.org/help/license renders client-side and could not be fetched as plain text by this pass's tooling. Flagged unverified-this-pass for the licence text specifically."
+    identifier_schemes:
+      - uniprot
+      - uniprot-accession
+    pagination: "cursor"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/uniprot.go's UniProtNormalizer handles the search-list (results: [...]) and single-entry (bare object) shapes, x402-research-gateway#16. Massive, well-versioned REST. Search pages via an opaque cursor carried in a response Link header, not a body field; PaginationModel reports cursor accordingly. UniProtSearchAdapter and UniProtFetchAdapter are implemented and registered but have no route in config/routes.yaml yet."
 
   - provider_id: "ensembl-rest"
     name: "Ensembl REST"
@@ -1330,6 +1417,9 @@ providers:
     rights:
       metadata_license: "CDS terms (CC-BY)"
       redistribution: allowed
+      verified_on: "2026-08-18"
+      notes: "GET http://simbad.u-strasbg.fr/simbad/sim-id?Ident=M1&output.format=ASCII confirmed live 200, keyless, on 2026-08-18."
+    last_verified: "2026-08-18"
     notes: "TAP = ADQL SQL over astro catalogs. Endpoints/format: TAP at http://simbad.u-strasbg.fr/simbad/sim-tap"
 
   - provider_id: "vizier"
@@ -1351,8 +1441,10 @@ providers:
     rights:
       metadata_license: "per-catalog"
       redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "TAP/ADQL over 23k catalogs — huge leverage. Endpoints/format: TAP at http://tapvizier.u-strasbg.fr/TAPVizieR/tap"
+      verified_on: "2026-08-18"
+      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified. GET https://vizier.u-strasbg.fr/viz-bin/votable?-source=... returned a live 302 redirect on 2026-08-18, confirming the endpoint is up; the redirect target was not followed further this pass."
+    last_verified: "2026-08-18"
+    notes: "TAP/ADQL over 23k catalogs, huge leverage. Endpoints/format: TAP at http://tapvizier.u-strasbg.fr/TAPVizieR/tap"
 
   - provider_id: "ned"
     name: "NED (NASA/IPAC Extragalactic Database)"
@@ -1465,24 +1557,34 @@ providers:
   - provider_id: "nasa-exoplanet-archive"
     name: "NASA Exoplanet Archive"
     provider_type: astronomical_database
-    status: researched
+    status: implemented
     section: "1.6"
     fields:
       - cosmology_astronomy
-    coverage: "Confirmed exoplanets"
-    corpus_size: "5k+"
-    base_url: "https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=..."
+    coverage: "Confirmed exoplanets and related tables (planetary systems, composite parameters, stellar hosts), queried through a Table Access Protocol (IVOA TAP) service rather than a keyword search."
+    corpus_size: "5k+ confirmed planets"
+    base_url: "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
     source_prefix: "nea"
     canonical_url: "https://exoplanetarchive.ipac.caltech.edu/overview/{name}"
     tier_fit: "query (ADQL)"
     auth: "none"
-    rate_limit: "polite"
+    rate_limit: "no numeric ceiling found this pass; treated as polite"
     license: "NASA PD"
     rights:
       metadata_license: "NASA PD"
       redistribution: unknown
-      notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
-    notes: "TAP."
+      terms_url: "https://exoplanetarchive.ipac.caltech.edu/docs/program_interfaces.html"
+      verified_on: "2026-08-18"
+      notes: "Metadata licence not established as open. IPAC/Caltech-operated under a NASA contract; a blanket public-domain statement covering every table (many rows source parameter values from published literature, each potentially carrying its own reuse terms) was not found. Unknown is not permission: do not redistribute records until verified."
+    identifier_schemes:
+      - nasa-exoplanet
+    query_language: "ADQL"
+    formats:
+      - json
+      - csv
+      - votable
+    last_verified: "2026-08-18"
+    notes: "internal/provider/nasa_exoplanet.go's NASAExoplanetNormalizer parses the bare JSON array TAP/sync returns, x402-research-gateway#16. TAP/sync executes the caller's own ADQL query and returns its full bounded result set in one call (PaginationModel \"none\"): the caller controls page size via the query's own TOP clause, not gateway pagination. One Searcher-shaped route, no separate Fetcher: the archive has no single-object endpoint independent of its own table system. NASAExoplanetArchiveAdapter is implemented and registered but has no route in config/routes.yaml yet."
 
   - provider_id: "ivoa-vo-registry"
     name: "IVOA VO Registry"
@@ -1528,23 +1630,35 @@ providers:
   - provider_id: "osf-api"
     name: "OSF API (full)"
     provider_type: dataset_repository
-    status: researched
+    status: implemented
     section: "1.7"
     fields:
       - mind_neuroscience
-    coverage: "Open science projects across fields"
-    corpus_size: "~500k projects"
-    base_url: "https://api.osf.io/v2/"
+    coverage: "Open science projects, registrations, and preprint servers across every field (nodes endpoint); superset of PsyArXiv, covering SocArXiv, BITSS, and every other OSF-hosted preprint provider."
+    corpus_size: "~636k nodes (public.osf.io node count, read 2026-08-18)"
+    base_url: "https://api.osf.io/v2/nodes/"
     source_prefix: "osf"
-    canonical_url: "https://osf.io/{id}"
+    canonical_url: "https://osf.io/{id}/"
     tier_fit: "raw, query"
-    auth: "api-key optional"
-    rate_limit: "100/s auth"
-    license: "CC-BY"
+    auth: "none for public read; oauth token or personal token optional for private resources and higher throughput"
+    rate_limit: "no published numeric ceiling found on developer.osf.io in this pass (client-rendered docs); treated as polite"
+    license: "unknown (per-node)"
     rights:
-      metadata_license: "CC-BY"
-      redistribution: allowed
-    notes: "Superset of PsyArXiv; covers all preprint servers on OSF (SocArXiv, BITSS, etc.)."
+      metadata_license: "unknown"
+      redistribution: unknown
+      terms_url: "https://developer.osf.io/"
+      verified_on: "2026-08-18"
+      notes: "The prior CC-BY designation on this entry could not be confirmed: no blanket metadata licence was found on developer.osf.io (its docs render client-side, unreadable by this pass's fetch tool), and a node's own content licence, when set, lives behind a separate relationships.license link this adapter does not dereference. Corrected to unknown per this issue's unknown-is-not-permission rule rather than carried forward unverified."
+    identifier_schemes:
+      - osf
+      - osf-node
+    pagination: "page"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/osf.go's OSFNormalizer handles the JSON:API list (data: [...]) and single-resource (data: {...}) shapes over the nodes collection, x402-research-gateway#16. Superset of PsyArXiv; covers all preprint servers on OSF (SocArXiv, BITSS, etc.). Implemented and registered (OSFNodeSearchAdapter, OSFNodeFetchAdapter) but has no route in config/routes.yaml yet."
 
   - provider_id: "openneuro"
     name: "OpenNeuro"
@@ -1847,23 +1961,35 @@ providers:
   - provider_id: "gbif"
     name: "GBIF"
     provider_type: biological_database
-    status: researched
+    status: implemented
     section: "1.8"
     fields:
       - earth_sciences
-    coverage: "Biodiversity occurrences"
-    corpus_size: "~3B records"
-    base_url: "https://api.gbif.org/v1/"
+    coverage: "Biodiversity occurrence records aggregated from publishing institutions worldwide; each occurrence carries its own licence set by the publishing dataset."
+    corpus_size: "~3B occurrence records"
+    base_url: "https://api.gbif.org/v1/occurrence/search"
     source_prefix: "gbif"
     canonical_url: "https://www.gbif.org/occurrence/{id}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY / CC0"
+    rate_limit: "no numeric ceiling found this pass; treated as polite"
+    license: "per-record (CC0, CC-BY, or CC-BY-NC, set by the publishing dataset)"
     rights:
-      metadata_license: "CC-BY / CC0"
-      redistribution: allowed
-    notes: "Species/taxonomy canonical."
+      metadata_license: "per-record"
+      redistribution: unknown
+      terms_url: "https://www.gbif.org/terms"
+      verified_on: "2026-08-18"
+      notes: "Confirmed live: a queried occurrence carried license=\"http://creativecommons.org/licenses/by-nc/4.0/legalcode\" (CC-BY-NC), not the CC-BY/CC0 this entry previously stated as a blanket designation. Corrected to per-record: CC0 and CC-BY report allowed, CC-BY-NC and an absent field report unknown/not-allowed, matching how the adapter actually reads it. gbif.org/terms itself returned 403 to this pass's fetch tool and was not independently re-read."
+    identifier_schemes:
+      - gbif
+      - gbif-occurrence
+    pagination: "offset"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/gbif.go's GBIFNormalizer handles the search-list (results: [...]) and single-occurrence (bare object) shapes, x402-research-gateway#16. Species/taxonomy canonical. GBIFOccurrenceSearchAdapter and GBIFOccurrenceFetchAdapter are implemented and registered but have no route in config/routes.yaml yet."
 
   - provider_id: "obis"
     name: "OBIS"
@@ -1884,6 +2010,9 @@ providers:
     rights:
       metadata_license: "CC-BY"
       redistribution: allowed
+      verified_on: "2026-08-18"
+      notes: "GET https://api.obis.org/v3/occurrence?scientificname=... confirmed live 200 JSON, keyless, on 2026-08-18."
+    last_verified: "2026-08-18"
     notes: "Marine-slice of GBIF, but independent."
 
   - provider_id: "epa-envirofacts"

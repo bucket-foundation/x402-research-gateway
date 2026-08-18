@@ -876,3 +876,50 @@ routes:
       passThrough: [q, start, rows]
       authTokenSource: orcid
       timeoutSeconds: 20
+
+  # --- USPTO Open Data Portal (x402-research-gateway#18) ---
+  # USPTO ODP replaced the retired PatentsView API on 2026-03-20. Needs an
+  # ODP API key from data.uspto.gov (account setup includes a profile
+  # completeness requirement USPTO phased in during 2026); the gateway
+  # holds no key of its own. USPTO_ODP_API_KEY comes from the operator's
+  # environment via the ${VAR} substitution below, the same static-secret
+  # pattern CORE_API_KEY uses. With it unset the upstream sends an empty
+  # X-API-KEY and USPTO answers unauthorized, reported as an upstream
+  # status rather than as "no patents found."
+  - id: uspto-search
+    path: /research/uspto/search
+    method: GET
+    description: "USPTO Open Data Portal patent application search (US jurisdiction only)."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: uspto
+      providerUrl: https://data.uspto.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://api.uspto.gov
+      path: /api/v1/patent/applications/search
+      headers:
+        X-API-KEY: "${USPTO_ODP_API_KEY}"
+      passThrough: [q, limit, offset]
+      timeoutSeconds: 20
+
+  - id: uspto-fetch
+    path: /research/uspto/fetch
+    method: GET
+    description: "USPTO Open Data Portal single application record, by application number."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: uspto
+      providerUrl: https://data.uspto.gov/
+      license: public-domain
+    upstream:
+      baseUrl: https://api.uspto.gov
+      pathTemplate: /api/v1/patent/applications/{id}
+      headers:
+        X-API-KEY: "${USPTO_ODP_API_KEY}"
+      passThrough: [id]
+      timeoutSeconds: 20

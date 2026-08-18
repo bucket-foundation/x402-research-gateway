@@ -2957,25 +2957,105 @@ providers:
   - provider_id: "uspto-odp"
     name: "USPTO Open Data Portal"
     provider_type: patent_database
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "US patents and applications"
+    coverage: "US patent applications and granted patents: prosecution/file-wrapper metadata, applicant and inventor parties, CPC/USPC classification, and the parent/child continuity graph (patent family). US jurisdiction only; no EPO, WIPO, or other national-office coverage. Verified absent: forward and backward patent citations are not published on this API (a prosecution-history API, not a citation graph)."
     corpus_size: "US patents and applications"
-    base_url: "https://data.uspto.gov/"
+    base_url: "https://api.uspto.gov/"
+    documentation_url: "https://data.uspto.gov/"
     source_prefix: "uspto"
-    canonical_url: "https://patents.google.com/patent/{id}"
+    canonical_url: "https://patentcenter.uspto.gov/applications/{id}"
     tier_fit: "raw, query"
-    auth: "api-key"
-    rate_limit: "per-key"
+    auth: "api-key (X-API-KEY header)"
+    rate_limit: "1,200,000 Patent File Wrapper Document requests/week; 5,000,000 metadata-retrieval requests/week (per provisioned key)"
     license: "US-gov public domain"
     rights:
       metadata_license: "US-gov public domain"
       redistribution: allowed
+      terms_url: "https://www.uspto.gov/terms"
+      verified_on: "2026-08-18"
+      notes: "US federal government prosecution records; 17 U.S.C. §105 places US government works outside copyright."
+    identifier_schemes:
+      - uspto-application
+      - uspto-patent
+    endpoints:
+      - id: "uspto-search"
+        url: "https://api.uspto.gov/api/v1/patent/applications/search"
+        method: "GET"
+        description: "Bibliographic and prosecution-history search over US patent applications and grants."
+        capability: "search"
+      - id: "uspto-fetch"
+        url: "https://api.uspto.gov/api/v1/patent/applications/{applicationNumber}"
+        method: "GET"
+        description: "Single application record by application number."
+        capability: "fetch"
+    query_language: "USPTO ODP query-string syntax (field:value)"
+    pagination: "offset (limit/offset query params, verified live 2026-08-18)"
+    route_ids:
+      - "uspto-search"
+      - "uspto-fetch"
     historical_predecessor: "patentsview-legacy"
-    notes: "Successor to the retired PatentsView API since 2026-03-20. ODP API key required; further account requirements phase in during June and August 2026. Verification is deployment-blocked until a key is provisioned."
+    last_verified: "2026-08-18"
+    last_checked: "2026-08-18"
+    notes: "Successor to the retired PatentsView API since 2026-03-20. Verified live 2026-08-18 against a founder-provisioned ODP API key: search, fetch-by-application-number, applicant/inventor parties, CPC/USPC classification, and parentContinuityBag/childContinuityBag (patent family via continuity, not a separate family id — USPTO ODP publishes none) all confirmed present on real records. Forward/backward citation data verified ABSENT from every record inspected (pending, published, and granted applications); no citation-graph adapter registered for this provider, and an agent requesting one gets an explicit unsupported answer per internal/provider/uspto.go's registration. No proxying of file-wrapper documents (PDFs) is implemented: this adapter is bibliographic/metadata discovery only. Adapter: internal/provider/uspto.go (USPTOSearchAdapter, USPTOFetchAdapter), x402-research-gateway#18."
 
+  - provider_id: "google-patents"
+    name: "Google Patents"
+    provider_type: patent_database
+    status: discovered
+    section: "1.9"
+    fields:
+      - cross_cutting
+    coverage: "Patent full text and bibliographic data aggregated across ~100+ patent offices, including scholarly-citation linkage (Google Scholar overlap) that no single patent office publishes."
+    base_url: "https://patents.google.com/"
+    documentation_url: "https://support.google.com/faqs/answer/7049866"
+    source_prefix: "google-patents"
+    canonical_url: "https://patents.google.com/patent/{id}"
+    tier_fit: "unresolved"
+    auth: "unresolved (public web UI; bulk data via Google Patents Public Data on BigQuery, a separate access path)"
+    rights:
+      redistribution: unknown
+      notes: "No blanket API terms verified for query-time access; the BigQuery bulk dataset carries its own Google Cloud terms, distinct from any live query API. Unverified is not permission: no adapter implemented."
+    notes: "Named in x402-research-gateway#18's provider list. No live query API endpoint was verified during this session (Google Patents' public surface is a web UI and a BigQuery bulk export, not a documented REST query API this gateway could implement against without further scoping). Flagged unverified per this issue's own rule rather than blocking the issue; no adapter implemented, no route registered."
+
+  - provider_id: "epo-ops"
+    name: "EPO Open Patent Services (OPS)"
+    provider_type: patent_database
+    status: discovered
+    section: "1.9"
+    fields:
+      - cross_cutting
+    coverage: "European Patent Office bibliographic, full-text, legal-status, and citation data; the feed402 repo's own SPEC §6.1 already documents an EPO OPS posture for the sibling protocol repo."
+    base_url: "https://ops.epo.org/3.2/"
+    documentation_url: "https://www.epo.org/en/searching-for-patents/data/web-services/ops"
+    source_prefix: "epo-ops"
+    tier_fit: "unresolved"
+    auth: "OAuth2 client-credentials (registered developer account required)"
+    rate_limit: "throttled per registered consumer key; tiers documented on the EPO developer portal"
+    rights:
+      redistribution: unknown
+      notes: "EPO OPS terms distinguish query access from redistribution and cap request volume per registration tier; not read in full during this session. Unverified is not permission: no adapter implemented."
+    notes: "Named in x402-research-gateway#18's provider list. No developer credential was provisioned this session (only a USPTO ODP key was); no live endpoint verification was performed, and no adapter implemented. The feed402 protocol repo's SPEC §6.1 (routes/patents.ts) documents an EPO OPS posture that could seed a future gateway adapter, but that document is the protocol repo's own conceptual template, not a verified live gateway endpoint."
+
+  - provider_id: "wipo-patentscope"
+    name: "WIPO PATENTSCOPE"
+    provider_type: patent_database
+    status: discovered
+    section: "1.9"
+    fields:
+      - cross_cutting
+    coverage: "International (PCT) patent applications and a large mirror of national-office collections; the feed402 repo's own SPEC §6.1 documents a PATENTSCOPE posture admitting content only on the insight tier under a derivative-license clause."
+    base_url: "https://patentscope.wipo.int/"
+    documentation_url: "https://www.wipo.int/patentscope/en/data/search_index_data.html"
+    source_prefix: "wipo-patentscope"
+    tier_fit: "insight (per feed402 SPEC §6.1's derivative-license precedent, not independently reverified this session)"
+    auth: "unresolved"
+    rights:
+      redistribution: unknown
+      notes: "The feed402 protocol repo's SPEC §6.1 records a narrow, tier-conditional grant for this source (insight-tier only, under a derivative-license clause) as the precedent to structurally encode should this gateway later implement it. That grant was read from the sibling protocol document, not independently reverified against WIPO's own current terms this session, so it is carried here as an unverified pointer rather than an operative rights statement."
+    notes: "Named in x402-research-gateway#18's provider list. No developer credential was provisioned this session; no live endpoint verification was performed, and no adapter implemented. Whichever future session implements this provider must re-verify WIPO's current terms directly rather than relying on the feed402 SPEC §6.1 restatement carried here as a starting pointer."
 
   - provider_id: "mesh"
     name: "MeSH (Medical Subject Headings)"

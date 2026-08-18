@@ -151,5 +151,16 @@ func DefaultRegistry() Registry {
 
 		FigshareSearchAdapter.ID: FigshareSearchAdapter,
 		FigshareFetchAdapter.ID:  FigshareFetchAdapter,
+
+		// USPTO Open Data Portal (x402-research-gateway#18): search and
+		// fetch over US patent applications/grants, registered for
+		// per-record public-domain rights, application/patent identifier
+		// preservation, and the parent/child continuity graph
+		// (ObjectRelationProvider) that represents patent family
+		// membership, none of which the declarative path can express. No
+		// forward/backward citation adapter: verified absent from this API
+		// (see internal/provider/uspto.go doc comment).
+		USPTOSearchAdapter.ID: USPTOSearchAdapter,
+		USPTOFetchAdapter.ID:  USPTOFetchAdapter,
 	}
 }

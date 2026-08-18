@@ -57,6 +57,14 @@ const (
 	SchemeOSF           Scheme = "osf"
 	SchemeFigshare      Scheme = "figshare"
 	SchemeNASAExoplanet Scheme = "nasa-exoplanet"
+	// SchemeUSPTOApplication and SchemeUSPTOPatent (x402-research-gateway#18)
+	// are opaque provider-local ids on the same "trim only" precedent as
+	// SchemeDOAJ/SchemeOpenAIRE above. They are kept distinct from each
+	// other because an application number and a granted patent number name
+	// different things about the same prosecution history: an application
+	// without SchemeUSPTOPatent has not (yet, or ever) issued.
+	SchemeUSPTOApplication Scheme = "uspto-application"
+	SchemeUSPTOPatent      Scheme = "uspto-patent"
 )
 
 // Identifier is one identifier under one scheme. Value is the normalized
@@ -257,7 +265,7 @@ func init() {
 	// (x402-research-gateway#16) are each opaque provider-local ids; no
 	// normalization beyond trimming applies, matching the DOAJ/OpenAIRE
 	// precedent above.
-	for _, s := range []Scheme{SchemePubChemCID, SchemeUniProt, SchemeGBIF, SchemeOSF, SchemeFigshare, SchemeNASAExoplanet} {
+	for _, s := range []Scheme{SchemePubChemCID, SchemeUniProt, SchemeGBIF, SchemeOSF, SchemeFigshare, SchemeNASAExoplanet, SchemeUSPTOApplication, SchemeUSPTOPatent} {
 		s := s
 		RegisterScheme(s, func(raw string) (string, string, bool) {
 			v := strings.TrimSpace(raw)

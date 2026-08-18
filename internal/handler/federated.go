@@ -342,14 +342,41 @@ func bareRecordID(sourceID string) string {
 // tier's retrieval fan-out.
 func federatedUpstreamRequest(ctx context.Context, route *config.RouteConfig, query string) *http.Request {
 	q := url.Values{}
-	for _, p := range route.Upstream.PassThrough {
-		q.Set(p, query)
-	}
-	for _, alias := range []string{"term", "query", "q", "search"} {
-		if q.Get(alias) == "" {
-			q.Set(alias, query)
+
+	// PassThrough contains every client-controlled upstream parameter, not
+	// just the provider's search input. Never copy a natural-language query
+	// into pagination, filtering, projection, date, or sort controls.
+	searchParam := ""
+	for _, candidate := range []string{
+		"search_query",  // arXiv
+		"query.term",    // ClinicalTrials.gov
+		"search_string", // zbMATH Open
+		"query",         // Crossref, DataCite, Europe PMC, Semantic Scholar, ROR
+		"search",        // OpenAlex
+		"term",          // PubMed
+		"q",             // DBLP, CORE, ORCID, Kruse
+	} {
+		for _, allowed := range route.Upstream.PassThrough {
+			if allowed == candidate {
+				searchParam = candidate
+				break
+			}
+		}
+		if searchParam != "" {
+			break
 		}
 	}
+
+	if searchParam != "" {
+		searchValue := query
+		if searchParam == "search_query" {
+			// arXiv requires a field-qualified expression rather than a bare
+			// natural-language string.
+			searchValue = "all:" + query
+		}
+		q.Set(searchParam, searchValue)
+	}
+
 	u := &url.URL{Path: route.Path, RawQuery: q.Encode()}
 	req, _ := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	req.URL = u

@@ -88,3 +88,84 @@ func TestMultilingual_MeSH_ConceptLabelLanguage(t *testing.T) {
 		t.Errorf("label value = %q", c.Labels[0].Value)
 	}
 }
+
+// crossrefTranslatedWorkFixture is a Crossref work published in Russian
+// whose record also carries the work's original-language title, distinct
+// from `title` (x402-research-gateway#21). Real Crossref works rarely
+// populate `original-title`; when they do it names the original-language
+// form separately from the (possibly translated) primary title.
+const crossrefTranslatedWorkFixture = `{"message":{"DOI":"10.1234/cyr1","URL":"https://doi.org/10.1234/cyr1","title":["Новый метод наблюдения квантовой запутанности"],"original-title":["Новый метод наблюдения квантовой запутанности"],"language":"ru"}}`
+
+func TestMultilingual_Crossref_CyrillicWorkLanguageAndOriginalTitle(t *testing.T) {
+	recs := CrossrefWorksNormalizer{}.Normalize([]byte(crossrefTranslatedWorkFixture))
+	if len(recs) != 1 {
+		t.Fatalf("got %d records, want 1", len(recs))
+	}
+	m := crossrefIdentity{}.Multilingual(recs[0])
+	if m.Language != "ru" {
+		t.Errorf("language = %q, want ru", m.Language)
+	}
+	if len(m.Forms) != 1 {
+		t.Fatalf("got %d forms, want 1: %+v", len(m.Forms), m.Forms)
+	}
+	f := m.Forms[0]
+	if f.Kind != FormOriginal || f.Provider != "crossref" {
+		t.Errorf("form = %+v", f)
+	}
+	if f.Value != "Новый метод наблюдения квантовой запутанности" {
+		t.Errorf("original-title value = %q", f.Value)
+	}
+	// Crossref does not tag original-title with its own language, so this
+	// gateway does not borrow the item-level `language` field for it.
+	if f.Language != "" {
+		t.Errorf("original-title form should carry no borrowed language, got %q", f.Language)
+	}
+}
+
+func TestMultilingual_Crossref_NoLanguageReportsZeroValue(t *testing.T) {
+	recs := CrossrefWorksNormalizer{}.Normalize([]byte(`{"message":{"DOI":"10.1234/x","title":["No language field"]}}`))
+	m := crossrefIdentity{}.Multilingual(recs[0])
+	if m.Language != "" || len(m.Forms) != 0 {
+		t.Errorf("absent language/original-title should report zero value, got %+v", m)
+	}
+}
+
+// dataciteCJKWorkFixture is a DataCite record whose primary title is
+// Japanese and which also carries a depositor-supplied English translation
+// tagged titleType=TranslatedTitle (x402-research-gateway#21) — the CJK
+// fixture case the issue's acceptance criteria ask for, on the DataCite
+// adapter this session wires.
+const dataciteCJKWorkFixture = `{"data":{"id":"10.5281/zenodo.1000001","attributes":{"doi":"10.5281/zenodo.1000001","url":"https://zenodo.org/record/1000001","language":"ja","titles":[{"title":"量子もつれの新しい観測方法"},{"title":"A New Method for Observing Quantum Entanglement","titleType":"TranslatedTitle","lang":"en"}]}}}`
+
+func TestMultilingual_DataCite_CJKTitleWithTranslatedForm(t *testing.T) {
+	recs := DataCiteNormalizer{}.Normalize([]byte(dataciteCJKWorkFixture))
+	if len(recs) != 1 {
+		t.Fatalf("got %d records, want 1", len(recs))
+	}
+	d := dataciteIdentity{}.Descriptor(recs[0])
+	if d.Title != "量子もつれの新しい観測方法" {
+		t.Errorf("primary title should be preserved verbatim in its original script, got %q", d.Title)
+	}
+	m := dataciteIdentity{}.Multilingual(recs[0])
+	if m.Language != "ja" {
+		t.Errorf("language = %q, want ja", m.Language)
+	}
+	if len(m.Forms) != 1 {
+		t.Fatalf("got %d forms, want 1: %+v", len(m.Forms), m.Forms)
+	}
+	f := m.Forms[0]
+	if f.Kind != FormTranslated || f.Provider != "datacite" || f.Language != "en" {
+		t.Errorf("translated form = %+v", f)
+	}
+	if f.Value != "A New Method for Observing Quantum Entanglement" {
+		t.Errorf("translated title value = %q", f.Value)
+	}
+}
+
+func TestMultilingual_DataCite_NoLanguageReportsZeroValue(t *testing.T) {
+	recs := DataCiteNormalizer{}.Normalize([]byte(`{"data":{"id":"10.5281/zenodo.2","attributes":{"doi":"10.5281/zenodo.2","titles":[{"title":"No language field"}]}}}`))
+	m := dataciteIdentity{}.Multilingual(recs[0])
+	if m.Language != "" || len(m.Forms) != 0 {
+		t.Errorf("absent language/translated-title should report zero value, got %+v", m)
+	}
+}

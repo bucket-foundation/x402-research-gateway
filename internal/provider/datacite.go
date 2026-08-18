@@ -43,12 +43,26 @@ type dataciteDOI struct {
 		URL    string `json:"url"`
 		Titles []struct {
 			Title string `json:"title"`
+			// TitleType is DataCite's own vocabulary: empty means the
+			// record's primary title, "TranslatedTitle" is a provider-
+			// published translation, "AlternativeTitle" and "Subtitle" are
+			// the remaining values DataCite defines
+			// (x402-research-gateway#21).
+			TitleType string `json:"titleType"`
+			// Lang is a BCP-47 tag DataCite lets a depositor attach per
+			// title; empty means the depositor did not tag one.
+			Lang string `json:"lang"`
 		} `json:"titles"`
 		Creators []struct {
 			Name string `json:"name"`
 		} `json:"creators"`
 		PublicationYear int `json:"publicationYear"`
-		Types           struct {
+		// Language is the resource's own language, DataCite Metadata
+		// Schema's top-level `language` property, the depositor's own
+		// assertion and never a gateway default (x402-research-gateway
+		// #21).
+		Language string `json:"language"`
+		Types    struct {
 			ResourceType        string `json:"resourceType"`
 			ResourceTypeGeneral string `json:"resourceTypeGeneral"`
 		} `json:"types"`
@@ -321,6 +335,47 @@ func (dc dataciteIdentity) Assets(rec NormalizedRecord) []Asset {
 	return out
 }
 
+// Multilingual reports the resource language and any titleType-tagged title
+// forms DataCite's depositor published beyond the primary title
+// (x402-research-gateway#21). DataCite's titleType vocabulary distinguishes
+// a translation from an alternative title and a subtitle; only
+// TranslatedTitle is carried as FormTranslated, since AlternativeTitle and
+// Subtitle are not translations of anything and this gateway does not
+// invent a relation DataCite did not assert.
+func (dc dataciteIdentity) Multilingual(rec NormalizedRecord) Multilingual {
+	d, ok := dc.parse(rec)
+	if !ok {
+		return Multilingual{}
+	}
+	m := Multilingual{Language: d.Attributes.Language}
+	for _, t := range d.Attributes.Titles {
+		if t.Title == "" {
+			continue
+		}
+		switch t.TitleType {
+		case "TranslatedTitle":
+			m.Forms = append(m.Forms, LocalizedForm{
+				Value: t.Title, Language: t.Lang, Kind: FormTranslated, Provider: "datacite",
+			})
+		case "AlternativeTitle":
+			m.Forms = append(m.Forms, LocalizedForm{
+				Value: t.Title, Language: t.Lang, Kind: FormSynonym, Provider: "datacite",
+			})
+		default:
+			// The primary title (empty titleType) and Subtitle carry no
+			// translation relation to preserve, so they are left out of
+			// Forms unless the depositor tagged a language DataCite's own
+			// primary-title field cannot otherwise carry.
+			if t.TitleType == "" && t.Lang != "" {
+				m.Forms = append(m.Forms, LocalizedForm{
+					Value: t.Title, Language: t.Lang, Kind: FormOriginal, Provider: "datacite",
+				})
+			}
+		}
+	}
+	return m
+}
+
 func itoaSmall(n int) string {
 	if n < 10 {
 		return string(rune('0' + n))
@@ -347,6 +402,7 @@ var DataCiteSearchAdapter = &Adapter{
 	RecordRightsProvider:   dataciteIdentity{},
 	ObjectRelationProvider: dataciteIdentity{},
 	IntegrityProvider:      dataciteIdentity{},
+	MultilingualProvider:   dataciteIdentity{},
 	SyncProvider:           dataciteSync{},
 }
 
@@ -363,5 +419,6 @@ var DataCiteFetchAdapter = &Adapter{
 	RecordRightsProvider:   dataciteIdentity{},
 	ObjectRelationProvider: dataciteIdentity{},
 	IntegrityProvider:      dataciteIdentity{},
+	MultilingualProvider:   dataciteIdentity{},
 	SyncProvider:           dataciteSync{},
 }

@@ -36,6 +36,16 @@ import (
 // relations do not imply equivalence" and "partial mappings expressible"
 // shape #15 requires, verified against a live obsolete term
 // (GO:0000005) rather than assumed from documentation.
+//
+// Multilingual audit (x402-research-gateway#21, 2026-08-18): this
+// endpoint's term document (olsTerm above) carries `label`, `synonyms`,
+// and `description` as plain untagged strings, with no language or script
+// field in any of them. Gene Ontology and the OBO Foundry ontologies this
+// adapter serves are English-only vocabularies; OLS4's REST surface has no
+// per-label language tag to discard here, unlike MeSH's @language-tagged
+// JSON-LD or OpenAlex's per-work `language` field. This adapter does not
+// implement MultilingualProvider because there is nothing in this response
+// shape to preserve, not because the wiring was skipped.
 type OLSProvider struct {
 	Client    *http.Client
 	BaseURL   string // default https://www.ebi.ac.uk/ols4/api

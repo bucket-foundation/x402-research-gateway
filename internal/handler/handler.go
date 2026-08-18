@@ -20,6 +20,7 @@ import (
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/harvest"
 	"github.com/gianyrox/x402-research-gateway/internal/provider"
+	"github.com/gianyrox/x402-research-gateway/internal/registry"
 )
 
 // Handler handles x402-protected research API requests.
@@ -34,6 +35,12 @@ type Handler struct {
 	// harvestSigner keys the resumable-harvest cursors and the feed402
 	// §3.6 fingerprints (x402-research-gateway#10).
 	harvestSigner *harvest.Signer
+	// registry backs the free sync-capability listing
+	// (x402-research-gateway#11). Nil when no registry is configured or the
+	// file could not be read, which the endpoint reports rather than
+	// serving an empty list that would read as "no provider has bulk
+	// access."
+	registry *registry.Registry
 }
 
 // chiHTTPAdapter implements x402http.HTTPAdapter for net/http requests.
@@ -336,6 +343,17 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		// fingerprints, and it never leaves the process.
 		harvestSigner: harvest.NewSigner(cfg.Feed402.Harvest.CursorSecret),
 	}
+	if cfg.Feed402.Enabled && cfg.Feed402.SyncDiscovery.Enabled {
+		reg, err := registry.Load(cfg.Feed402.SyncDiscovery.RegistryPath)
+		if err != nil {
+			slog.Warn("sync discovery: provider registry not loaded",
+				"path", cfg.Feed402.SyncDiscovery.RegistryPath)
+		} else {
+			h.registry = reg
+			slog.Info("sync discovery active",
+				"path", cfg.Feed402.SyncDiscovery.Path, "providers", reg.Len())
+		}
+	}
 	if cfg.Feed402.Enabled && cfg.Feed402.Insight.Enabled {
 		h.summarizer = newSummarizer(cfg.Feed402.Insight)
 	}
@@ -353,6 +371,12 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 
 	// Health endpoint (free)
 	h.router.Get("/health", h.handleHealth)
+
+	// Sync-capability discovery (free). Pricing the choice between paging
+	// an API and downloading a snapshot must not itself cost anything.
+	if cfg.Feed402.Enabled && cfg.Feed402.SyncDiscovery.Enabled {
+		h.router.Get(cfg.Feed402.SyncDiscovery.Path, h.handleSyncDiscovery)
+	}
 
 	// feed402 discovery manifest (free) — only mounted when enabled.
 	if cfg.Feed402.Enabled {

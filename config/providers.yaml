@@ -41,7 +41,7 @@ providers:
       - arxiv
       - doi
     pagination: "offset via start + max_results; max_results capped at 2000 per call and 30000 results overall"
-    bulk_access: false
+    bulk_access: true
     incremental_updates: true
     formats:
       - atom
@@ -49,6 +49,29 @@ providers:
     route_ids:
       - arxiv-search
       - arxiv-fetch
+    sync:
+      modes:
+        - oai_pmh
+        - bulk_snapshot
+      oai_pmh_endpoint: "http://export.arxiv.org/oai2"
+      oai_pmh_metadata_prefixes:
+        - oai_dc
+        - arXiv
+        - arXivRaw
+      incremental_method: "OAI-PMH ListRecords with a from/until date window; resumption tokens page the set"
+      cursor_semantics: "Resumption tokens are provider-issued and expire, so a resumed harvest re-requests from the last token rather than from an offset. Deletions appear as OAI-PMH deleted records."
+      snapshots:
+        - url: "https://info.arxiv.org/help/bulk_data_s3.html"
+          format: "PDF and source tarballs in S3"
+          update_frequency: "monthly manifests"
+          auth: "requester-pays"
+          rights:
+            content_license: "per submission; the same per-record licences the API reports"
+            redistribution: unknown
+            notes: "Requester-pays access is permission to download, never permission to redistribute. Per-submission licences govern the content and most grant the reader nothing."
+          notes: "Download costs fall on the requester. The gateway describes this channel and never proxies it."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "Atom XML, parsed by the adapter's atom-style Normalizer; the declarative proxy path cannot express it. Versions are distinct objects and stay separately addressable: the record id keeps its vN suffix. A submission's arxiv:doi becomes a provider-asserted preprint_of relation feeding preprint-to-published identity resolution. Subject classification is preserved with its scheme. OAI-PMH incremental harvest is open; the full-text bulk sets are requester-pays object storage this gateway does not access, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "zbmath-open-rest"
@@ -84,6 +107,18 @@ providers:
     route_ids:
       - zbmath-search
       - zbmath-fetch
+    sync:
+      modes:
+        - oai_pmh
+        - date_window
+      oai_pmh_endpoint: "https://oai.zbmath.org/v1/"
+      oai_pmh_metadata_prefixes:
+        - oai_dc
+        - oai_zb_preview
+      incremental_method: "OAI-PMH ListRecords with a from/until window over the open subset"
+      cursor_semantics: "Resumption tokens page the set and expire. Review text stays outside the open subset, so a complete harvest of the open subset is not a complete harvest of zbMATH."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "MSC classification codes are preserved with their scheme (e.g. msc2020) rather than normalized to one edition, since the same numeric code names a different subject across the 2000/2010/2020 revisions. Reviews (editorial_contributions) are preserved as a distinct field from the bibliographic record, each carrying its own reviewer sign and contribution type, never folded into asset discovery or treated as redistributable under the record's rights. An OAI-PMH endpoint at oai.zbmath.org/v1/ answered Identify unauthenticated during verification, so incremental_updates is true; no full-corpus bulk export for unauthenticated use was found, so bulk_access is false. Open since 2021 (post-zbMATH-classic). Verified live against api.zbmath.org and oai.zbmath.org 2026-08-17."
 
   - provider_id: "oeis"
@@ -577,6 +612,21 @@ providers:
       - dblp-publ-search
       - dblp-author-search
       - dblp-fetch
+    sync:
+      modes:
+        - bulk_snapshot
+      snapshots:
+        - url: "https://dblp.org/xml/"
+          format: "one XML document with its DTD, gzipped"
+          update_frequency: "monthly, with the current file republished continuously"
+          auth: "none"
+          rights:
+            metadata_license: "CC0-1.0"
+            redistribution: allowed
+            notes: "DBLP publishes its dataset under CC0 1.0 per its dataset FAQ."
+          notes: "One document rather than a partitioned set, so a client takes all of it or none."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "Publication search and author search are both JSON via dblp.org/search/{publ,author}/api. Author search is DBLP's own disambiguation: two people sharing a name return two hits under two distinct DBLP person ids (pid), never merged. Single-record fetch has no JSON representation (/rec/{key}.json 404s); the adapter parses the XML representation at /rec/{key}.xml, which DBLP declares as US-ASCII, a strict subset of UTF-8 the adapter's decoder passes through rather than transcoding. The full dataset is published as CC0 XML at dblp.org/xml/, rebuilt on every site rebuild rather than on a fixed cadence, so bulk_access is true and incremental_updates is false (no delta feed). Verified live against dblp.org 2026-08-17."
 
   - provider_id: "papers-with-code"
@@ -700,6 +750,23 @@ providers:
     bulk_access: true
     incremental_updates: true
     fulltext_access: true
+    sync:
+      modes:
+        - bulk_snapshot
+        - incremental_cursor
+      incremental_method: "scroll parameter on the search endpoint"
+      cursor_semantics: "The scroll id resumes an in-flight scan and expires; a lapsed scan restarts."
+      snapshots:
+        - url: "https://core.ac.uk/services/dataset"
+          format: "JSON, partitioned"
+          update_frequency: "periodic dataset releases"
+          auth: "api-key"
+          rights:
+            content_license: "per record; CORE aggregates repositories with differing deposit terms"
+            redistribution: unknown
+            notes: "A dataset release carries full text whose licences vary per record, and several grant no redistribution at all."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "OA full-text search — major asset for insight tier. Adapter implemented in x402-research-gateway#8 (internal/provider/core.go). Operational only where the operator supplies CORE_API_KEY; the gateway holds no key of its own. Location discovery only: the gateway never fetches, mirrors, or re-serves CORE-hosted content."
 
   - provider_id: "openreview"
@@ -816,6 +883,26 @@ providers:
     route_ids:
       - pubmed-search
       - pubmed-fetch
+    sync:
+      modes:
+        - bulk_snapshot
+        - change_feed
+        - date_window
+      incremental_method: "daily update files on the FTP site, or a reldate/mindate window on ESearch"
+      cursor_semantics: "Update files are cumulative by day and carry revised and deleted records, so a resumed harvest replays whole days rather than record offsets."
+      snapshots:
+        - url: "https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/"
+          format: "gzipped XML, partitioned"
+          update_frequency: "annual baseline with daily update files alongside"
+          auth: "none"
+          rights:
+            metadata_license: "NLM terms; most citation records are public domain in the United States"
+            redistribution: unknown
+            notes: "An abstract can carry publisher copyright where the citation record does not. Unknown is not permission."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    bulk_access: true
+    incremental_updates: true
     notes: "Keep. Parser = `pubmed-style`."
 
   - provider_id: "europe-pmc"
@@ -859,6 +946,27 @@ providers:
       - epmc-fetch
       - epmc-references
       - epmc-cited-by
+    sync:
+      modes:
+        - oai_pmh
+        - bulk_snapshot
+        - date_window
+      oai_pmh_endpoint: "https://www.ebi.ac.uk/europepmc/webservices/rest/oai.cgi"
+      oai_pmh_metadata_prefixes:
+        - oai_dc
+      incremental_method: "cursorMark scan on the search API, or an OAI-PMH from/until window"
+      cursor_semantics: "cursorMark is stable for a sort order and resumes exactly. A record modified mid-scan can be missed or repeated, which a snapshot-consistent harvest has to account for."
+      snapshots:
+        - url: "https://europepmc.org/ftp/oa/"
+          format: "XML full text, gzipped"
+          update_frequency: "regular FTP refresh"
+          auth: "none"
+          rights:
+            content_license: "per record; the open-access subset mixes several CC licences"
+            redistribution: unknown
+            notes: "The OA subset downloads without authentication. Redistribution terms are per record, and several records in it are free to read while granting no redistribution."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "No API key. Full text for the open-access subset is served as JATS XML at /{source}/{id}/fullTextXML; the gateway surfaces the address of the structured document rather than flattening it, because the structure is the reason to want it. References and citations at /{source}/{id}/references and /citations. Preprint and correction relations come from commentCorrectionList. Verified 2026-08-17."
 
   - provider_id: "biorxiv-medrxiv"
@@ -1050,6 +1158,26 @@ providers:
       notes: "Metadata licence not established as open. Unknown is not permission: do not redistribute records until verified."
     route_ids:
       - clinicaltrials-search
+    sync:
+      modes:
+        - bulk_snapshot
+        - date_window
+      incremental_method: "filter by last-update-posted date on the v2 study search"
+      cursor_semantics: "pageToken resumes a scan exactly and is opaque. A study updated mid-scan can move within the ordering."
+      snapshots:
+        - url: "https://clinicaltrials.gov/data-api/about-api"
+          format: "whole-registry download, JSON and XML"
+          update_frequency: "daily"
+          auth: "none"
+          rights:
+            metadata_license: "United States government work; the registry publishes its own terms of use"
+            redistribution: unknown
+            notes: "Sponsor-submitted text inside a record can carry its own restrictions. Unknown is not permission."
+          notes: "The URL is the data API index rather than a file, because the download endpoint is versioned and this entry is unverified."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    bulk_access: true
+    incremental_updates: true
     notes: "Keep. V1 deprecated 2024-06; ensure using v2."
 
   - provider_id: "pubmed-central"
@@ -1824,6 +1952,23 @@ providers:
       - crossref-search
       - crossref-fetch
       - crossref-references
+    sync:
+      modes:
+        - incremental_cursor
+        - date_window
+      incremental_method: "from-index-date filter on /works with cursor=* deep paging"
+      cursor_semantics: "Cursors expire after about five minutes, so a resumed harvest restarts from the last from-index-date rather than from the last cursor."
+      snapshots:
+        - url: "https://www.crossref.org/services/metadata-retrieval/metadata-plus/"
+          format: "monthly full corpus dump"
+          update_frequency: "monthly"
+          auth: "subscription"
+          rights:
+            metadata_license: "CC0 for the metadata records"
+            redistribution: unknown
+            notes: "The dump is a paid Metadata Plus product with its own terms. The gateway holds no subscription, so this snapshot is described and never exercised."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "Polite pool header `User-Agent: ...mailto:...`, plus a `mailto` query param. No API key. Reference lists come from `/works/{doi}` -> message.reference, present only where the publisher deposits references openly; an absent list is a publisher that did not deposit, never evidence a work has no references. Crossmark update relations come from `update-to` and `updated-by`. Bulk: whole-corpus monthly dumps are the paid Metadata Plus tier, so bulk_access is false for this gateway; incremental harvest via `from-index-date` plus cursor paging is open. Verified 2026-08-17."
 
   - provider_id: "datacite"
@@ -1859,6 +2004,20 @@ providers:
     route_ids:
       - datacite-search
       - datacite-fetch
+    sync:
+      modes:
+        - oai_pmh
+        - incremental_cursor
+        - date_window
+      oai_pmh_endpoint: "https://oai.datacite.org/oai"
+      oai_pmh_metadata_prefixes:
+        - oai_dc
+        - oai_datacite
+        - datacite
+      incremental_method: "query the REST API by updated date with page[cursor] deep paging"
+      cursor_semantics: "page[cursor] resumes exactly and is the documented path past the offset limit."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "Dataset and software DOIs, the complement to Crossref. JSON:API shape: data[].attributes. resourceTypeGeneral is preserved because a dataset, a piece of software, and a text are different objects. relatedIdentifiers are surfaced with DataCite's own relationType term preserved beside any normalized term; terms the identity vocabulary has no word for keep the provider's term and gain no normalized one. Rate limit not published as a number on 2026-08-17, recorded as unverified. Verified 2026-08-17."
 
   - provider_id: "openalex"
@@ -1885,6 +2044,26 @@ providers:
       - openalex-references
       - openalex-cited-by
     historical_predecessor: "microsoft-academic-graph"
+    sync:
+      modes:
+        - bulk_snapshot
+        - release_based
+        - date_window
+      incremental_method: "from_updated_date filter on the works endpoint, cursor-paged"
+      cursor_semantics: "The API cursor resumes exactly within one release. Across a monthly release the record set underneath changes, which a long harvest sees as movement."
+      snapshots:
+        - url: "https://docs.openalex.org/download-all-data/openalex-snapshot"
+          format: "gzipped JSON Lines, partitioned by entity type"
+          update_frequency: "monthly"
+          auth: "none"
+          rights:
+            metadata_license: "CC0"
+            redistribution: allowed
+            notes: "OpenAlex publishes the whole corpus under CC0. The gateway describes the snapshot and does not host it: it is not a mirror."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    bulk_access: true
+    incremental_updates: true
     notes: "Keep. MAG successor. Parser = `openalex-style`."
 
   - provider_id: "base"
@@ -1938,6 +2117,19 @@ providers:
     last_verified: "2026-08-17"
     route_ids:
       - unpaywall-fetch
+    sync:
+      modes: []
+      incremental_method: "none in the free API; per-DOI lookup only"
+      snapshots:
+        - url: "https://unpaywall.org/products/data-feed"
+          format: "database snapshot plus a daily change feed"
+          update_frequency: "daily changefiles"
+          auth: "subscription"
+          rights:
+            redistribution: unknown
+            notes: "The snapshot and the change feed are a paid product under their own terms. The gateway holds no subscription, so neither is exercised and neither is proxied."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "DOI-only lookup, no search endpoint, so the adapter implements Fetcher and not Searcher. Each oa_locations entry becomes a distinct Asset with its own URL, host type, version, and per-location rights. availability distinguishes retrievable (an OA location exists), restricted (is_oa true but no location published, an inconsistency surfaced rather than hidden), and absent (not open access). The email parameter is a route-level query parameter the operator sets; Unpaywall's response never echoes it, so it cannot leak into a fingerprint, cursor, or citation. Bulk snapshot and data-feed products exist under separate commercial terms this gateway does not subscribe to, so bulk_access is false. Verified 2026-08-17."
 
   - provider_id: "openaire-graph"
@@ -2048,7 +2240,7 @@ providers:
     identifier_schemes:
       - ror
     pagination: "page"
-    bulk_access: false
+    bulk_access: true
     incremental_updates: false
     formats:
       - json
@@ -2056,6 +2248,22 @@ providers:
     route_ids:
       - ror-search
       - ror-fetch
+    sync:
+      modes:
+        - bulk_snapshot
+        - release_based
+      incremental_method: "no change feed; a client diffs two releases"
+      snapshots:
+        - url: "https://zenodo.org/communities/ror-data"
+          format: "JSON and CSV, zipped, one archive per release"
+          update_frequency: "numbered releases every few weeks"
+          auth: "none"
+          rights:
+            metadata_license: "CC0"
+            redistribution: allowed
+            notes: "ROR publishes its data dumps under CC0 through Zenodo, which supplies each archive's checksum."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
     notes: "v2 schema (v1 deprecated). External identifiers (GRID, ISNI, Wikidata, FundRef) are preserved verbatim rather than folded into the identity graph's own scheme registry. Name variants (display, acronym, alias, per-language label) are preserved rather than reduced to one string. Relationships (parent, child, successor, predecessor, related) become typed identity relations with the direction inverted to match ROR's far-side-labeled convention. status (active/inactive/withdrawn) is preserved so a superseded record stays distinguishable from a live one. Versioned bulk data dumps are published to data.ror.org / Zenodo on a periodic (not scheduled) cadence; this adapter does not fetch them, so bulk_access is false. Verified live against api.ror.org 2026-08-17."
 
   - provider_id: "wikidata"
@@ -2257,6 +2465,25 @@ providers:
       - semantic-scholar-search
       - semantic-scholar-references
       - semantic-scholar-cited-by
+    sync:
+      modes:
+        - bulk_snapshot
+        - release_based
+      incremental_method: "the Datasets API publishes per-release diffs between two release ids"
+      cursor_semantics: "Releases are dated identifiers, so a client resumes by release rather than by offset."
+      snapshots:
+        - url: "https://api.semanticscholar.org/datasets/v1/release/"
+          format: "gzipped JSON Lines, per dataset"
+          update_frequency: "weekly releases"
+          auth: "api-key"
+          rights:
+            metadata_license: "ODC-BY for the corpus"
+            redistribution: unknown
+            notes: "The bulk datasets sit behind an issued key with their own terms, which are not the query API's terms."
+      verified: false
+      unverified_reason: "documented from the provider's own publication pages; not checked against a live fetch in this revision"
+    bulk_access: true
+    incremental_updates: true
     notes: "Keep. TLDRs useful in insight tier. Citation endpoints /graph/v1/paper/{id}/references and /citations, verified 2026-08-17."
 
   - provider_id: "sci-hub"

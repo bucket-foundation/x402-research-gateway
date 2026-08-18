@@ -108,6 +108,14 @@ feed402:
     timeoutSeconds: 20
     cursorSecret: "${HARVEST_CURSOR_SECRET}"
 
+  # Bulk and incremental capability discovery (x402-research-gateway#11).
+  # Free GET: it describes what each provider publishes, and serves no
+  # artifact. The gateway is not a mirror, a CDN, or a snapshot host.
+  syncDiscovery:
+    enabled: true
+    path: /research/sync
+    registryPath: config/providers.yaml
+
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
 

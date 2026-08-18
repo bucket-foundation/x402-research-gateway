@@ -18,6 +18,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/gianyrox/x402-research-gateway/internal/config"
+	"github.com/gianyrox/x402-research-gateway/internal/harvest"
 	"github.com/gianyrox/x402-research-gateway/internal/provider"
 )
 
@@ -30,6 +31,9 @@ type Handler struct {
 	httpClient *http.Client
 	providers  provider.Registry // route.ID -> adapter (search/fetch/citation/...)
 	summarizer summarizer        // feed402 insight-tier LLM (mock or openai)
+	// harvestSigner keys the resumable-harvest cursors and the feed402
+	// §3.6 fingerprints (x402-research-gateway#10).
+	harvestSigner *harvest.Signer
 }
 
 // chiHTTPAdapter implements x402http.HTTPAdapter for net/http requests.
@@ -246,6 +250,39 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		routeIndex[igKey] = &cfg.Routes[len(cfg.Routes)-1]
 	}
 
+	// Resumable harvest synthetic route (x402-research-gateway#10).
+	if cfg.Feed402.Enabled && cfg.Feed402.Harvest.Enabled {
+		hv := cfg.Feed402.Harvest
+		cfg.Routes = append(cfg.Routes, config.RouteConfig{
+			ID:          "feed402-harvest",
+			Path:        hv.Path,
+			Method:      "POST",
+			Description: hv.Description,
+			MimeType:    "application/json",
+			Price:       hv.Price,
+			Feed402Tier: "query",
+			Citation: config.RouteCitation{
+				SourcePrefix: "harvest",
+				License:      cfg.Feed402.CitationPolicy,
+			},
+		})
+		hvKey := "POST " + hv.Path
+		x402Routes[hvKey] = x402http.RouteConfig{
+			Description: hv.Description,
+			MimeType:    "application/json",
+			Accepts: x402http.PaymentOptions{
+				{
+					Scheme:            "exact",
+					Network:           network,
+					PayTo:             cfg.RecipientAddress,
+					Price:             hv.Price,
+					MaxTimeoutSeconds: 60,
+				},
+			},
+		}
+		routeIndex[hvKey] = &cfg.Routes[len(cfg.Routes)-1]
+	}
+
 	// Federated search synthetic route (x402-research-gateway#4). Only the
 	// POST is x402-protected; the GET estimate is free and registered
 	// below, outside the payment plumbing, because pricing a call must not
@@ -295,6 +332,9 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		routeIndex: routeIndex,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		providers:  provider.DefaultRegistry(),
+		// One signer keys both the harvest cursors and the feed402 §3.6
+		// fingerprints, and it never leaves the process.
+		harvestSigner: harvest.NewSigner(cfg.Feed402.Harvest.CursorSecret),
 	}
 	if cfg.Feed402.Enabled && cfg.Feed402.Insight.Enabled {
 		h.summarizer = newSummarizer(cfg.Feed402.Insight)
@@ -347,6 +387,10 @@ func NewHandler(cfg *config.GatewayConfig) *Handler {
 		}
 		if r.ID == "feed402-integrity" {
 			h.router.Post(r.Path, h.handleIntegrity)
+			continue
+		}
+		if r.ID == "feed402-harvest" {
+			h.router.Post(r.Path, h.handleHarvest)
 			continue
 		}
 		if r.ID == "feed402-federated" {

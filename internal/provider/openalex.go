@@ -74,4 +74,5 @@ var OpenAlexWorksAdapter = &Adapter{
 
 	IdentityProvider:   openAlexIdentity{},
 	DescriptorProvider: openAlexIdentity{},
+	Paginator:          openAlexPaginator{},
 }

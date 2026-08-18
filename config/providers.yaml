@@ -75,7 +75,7 @@ providers:
     historical_from: 1991
     languages:
       - en
-    notes: "Atom XML, parsed by the adapter's atom-style Normalizer; the declarative proxy path cannot express it. Versions are distinct objects and stay separately addressable: the record id keeps its vN suffix. A submission's arxiv:doi becomes a provider-asserted preprint_of relation feeding preprint-to-published identity resolution. Subject classification is preserved with its scheme. OAI-PMH incremental harvest is open; the full-text bulk sets are requester-pays object storage this gateway does not access, so bulk_access is false. Verified 2026-08-17."
+    notes: "Atom XML, parsed by the adapter's atom-style Normalizer; the declarative proxy path cannot express it. Versions are distinct objects and stay separately addressable: the record id keeps its vN suffix. A submission's arxiv:doi becomes a provider-asserted preprint_of relation feeding preprint-to-published identity resolution. Subject classification is preserved with its scheme. OAI-PMH incremental harvest is open; the full-text bulk sets are requester-pays object storage this gateway does not access, so bulk_access is false. Verified 2026-08-17. x402-research-gateway#19: arxivIdentity now also implements IntegrityProvider, reading the version number already carried in the record id and asserting new_version when it is >1, since arXiv's own version supersession is an update signal this gateway had parsed but not surfaced through the integrity endpoint. No new upstream call and no licence question beyond the metadata rights already recorded above."
 
   - provider_id: "zbmath-open-rest"
     name: "zbMATH Open REST"
@@ -1010,6 +1010,8 @@ providers:
     rights:
       metadata_license: "US-gov public domain (meta)"
       redistribution: allowed
+      terms_url: "https://www.ncbi.nlm.nih.gov/home/about/policies/"
+      verified_on: "2026-08-18"
     route_ids:
       - pubmed-search
       - pubmed-fetch
@@ -1059,7 +1061,8 @@ providers:
       metadata_license: "mixed (per-record)"
       content_license: "per record; the open-access subset carries several licences"
       redistribution: unknown
-      verified_on: "2026-08-17"
+      terms_url: "https://europepmc.org/Copyright"
+      verified_on: "2026-08-18"
       notes: "Free to read and open to redistribute are different facts and this corpus contains both. isOpenAccess and inEPMC say the content is readable; only the license field says anything about redistribution. A record with no licence reports unknown even when openly readable. Unknown is not permission."
     identifier_schemes:
       - pmid
@@ -2159,6 +2162,8 @@ providers:
     rights:
       metadata_license: "CC0"
       redistribution: allowed
+      terms_url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/"
+      verified_on: "2026-08-18"
       notes: "CC0 covers the Crossref metadata record. It does not cover content at a `link` URL, which is the publisher's and carries its own terms, described by the work's `license` array where one was deposited. Metadata rights and content rights are separate; unknown content rights are not permission."
     identifier_schemes:
       - doi
@@ -2220,7 +2225,8 @@ providers:
       metadata_license: "CC0"
       content_license: "per record from rightsList; frequently absent"
       redistribution: allowed
-      verified_on: "2026-08-17"
+      terms_url: "https://support.datacite.org/docs/datacite-metadata-terms-of-use"
+      verified_on: "2026-08-18"
       notes: "CC0 covers the DataCite metadata record and says nothing about the deposited object. A CC0 DataCite record routinely describes a dataset under some other licence or none. The adapter reads the object licence from rightsList per record and reports unknown when it is absent. Unknown is not permission."
     identifier_schemes:
       - doi
@@ -3398,3 +3404,67 @@ providers:
     rights:
       redistribution: "unknown"
     notes: "Document/semantics standard rather than a searchable source. Published as versioned XML content dictionaries; registry-only."
+
+### 1.11 — Research integrity, retraction, correction, and update sources (x402-research-gateway#19)
+
+  - provider_id: "crossmark"
+    name: "Crossmark (Crossref)"
+    provider_type: retraction_update_source
+    status: registered
+    section: "1.11"
+    fields:
+      - cross_cutting
+    coverage: "Crossmark update relations (correction, erratum, retraction, withdrawal, expression of concern, new edition), asserted by the publisher and deposited on the Crossref work record's own `update-to` and `updated-by` fields. This is the same Crossref REST surface the crossref provider entry describes; Crossmark is not a separate API, it is a field on that record, so this entry claims no route of its own -- see the crossref entry's route_ids (crossref-search, crossref-fetch) for where it is actually served."
+    source_prefix: "crossref"
+    canonical_url: "https://doi.org/{doi}"
+    license: "CC0"
+    rights:
+      metadata_license: "CC0"
+      redistribution: allowed
+      terms_url: "https://www.crossref.org/documentation/retrieve-metadata/rest-api/"
+      verified_on: "2026-08-18"
+      notes: "The update relation is a field on the CC0 Crossref metadata record, so it carries the same licence as the rest of that record (see the crossref provider entry). No separate Crossmark subscription or terms apply to reading update-to/updated-by through the public REST API; the Crossmark badge/widget service publishers embed on their own sites is a different, publisher-facing product this gateway does not use."
+    identifier_schemes:
+      - doi
+    last_verified: "2026-08-18"
+    notes: "Implemented in internal/provider/integrity_adapters.go's crossrefIdentity.IntegrityAssertions (x402-research-gateway#9). Registered here as its own integrity source per #19's requirement that a source-side registry entry exist for the provider of update/retraction data, distinct from the crossref entry's general scholarly-metadata registration. status is `registered` rather than `implemented` because route_ids and base_url belong to the crossref entry, which is the one route reconciliation may assign a route to; this entry describes the same upstream field from the integrity-source side without double-claiming the route."
+
+  - provider_id: "pubmed-correction-retraction"
+    name: "PubMed correction/retraction relations (NCBI E-utilities)"
+    provider_type: retraction_update_source
+    status: registered
+    section: "1.11"
+    fields:
+      - biophysics_life_sciences
+    coverage: "NCBI's own CommentsCorrectionsList (ErratumIn/ErratumFor, RetractionIn/RetractionOf, ExpressionOfConcernIn/For, UpdateIn/UpdateOf, RepublishedIn/From) as published in PubMed's EFetch XML (retmode=xml) and ESummary output, distinct from Europe PMC's derived commentCorrectionList."
+    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+    license: "US-gov public domain (meta)"
+    rights:
+      metadata_license: "US-gov public domain (meta)"
+      redistribution: allowed
+      terms_url: "https://www.ncbi.nlm.nih.gov/home/about/policies/"
+      verified_on: "2026-08-18"
+      notes: "Same public-domain metadata terms as the rest of PubMed. No separate licence gate; the reason this is `registered` rather than `implemented` is that this gateway's pubmed-fetch route (internal/provider/pubmed.go, PubMedFetchAdapter) has no Normalizer and never parses EFetch's XML body into a structured record at all, so there is no NormalizedRecord.Raw for an IntegrityProvider to read yet, unrelated to access or licence."
+    identifier_schemes:
+      - pmid
+    last_verified: "2026-08-18"
+    notes: "x402-research-gateway#19 verification: PubMed's own correction/retraction reference types are not wired directly. Europe PMC's commentCorrectionList (internal/provider/integrity_adapters.go's epmcIdentity.IntegrityAssertions, x402-research-gateway#9) already carries this data for the same PubMed record set, since Europe PMC indexes PubMed and republishes the relation under its own field name; docs/INTEGRITY.md and the europe-pmc registry entry describe that coverage. This entry stays `registered` rather than `implemented` because building a second, separate XML parser over PubMedFetchAdapter for a relation Europe PMC already surfaces adds a maintenance path with no new integrity coverage: the two providers would report from the same underlying NCBI notice, not independent sources, so nothing about disagreement-tracking (the reason two providers over one DOI are worth keeping distinct) motivates it. If the gateway ever adds a direct EFetch XML Normalizer for other reasons (structured abstracts, MeSH terms on the record), wiring an IntegrityProvider on top of it at that point is a small addition, not a new integration."
+
+  - provider_id: "retraction-watch-crossref-dataset"
+    name: "Retraction Watch Database (via Crossref)"
+    provider_type: retraction_update_source
+    status: registered
+    section: "1.11"
+    fields:
+      - cross_cutting
+    coverage: "The original Retraction Watch database (~60k+ retraction/correction records, 18 fields: RecordID, Title, Subject, Institution, Journal, Publisher, Country, Author, URLs, ArticleType, RetractionDate, RetractionDOI, RetractionPubMedID, OriginalPaperDate, OriginalPaperDOI, OriginalPaperPubMedID, RetractionNature, Reason, Paywalled, Notes), acquired by Crossref from the Center for Scientific Integrity in 2023 and published as a standalone dataset, separate from the retraction signal already exposed per-DOI through the crossmark entry's update-to/updated-by fields on the ordinary Crossref works API."
+    base_url: "https://gitlab.com/crossref/retraction-watch-data"
+    license: "unverified this session"
+    rights:
+      redistribution: unknown
+      terms_url: "https://www.crossref.org/blog/news-crossref-and-retraction-watch/"
+      verified_on: "2026-08-18"
+      notes: "Verified live 2026-08-18 (WebFetch against crossref.org's own announcement and documentation pages, retractionwatch.com's user guide, and the gitlab.com/crossref/retraction-watch-data README). Crossref's own documentation states retractions from this acquisition 'appear in the update-to field via the Crossref REST API' -- i.e. the per-DOI signal is already the crossmark entry above, under Crossref's confirmed CC0 metadata terms, and no separate integration is needed for that. This entry is specifically about the standalone bulk artifact: a CSV/git-repository dump of the full historical database, distributed at the base_url above. Neither Crossref's announcement, Crossref's REST API documentation, retractionwatch.com's user guide, nor the dataset's own README (read directly at gitlab.com/crossref/retraction-watch-data/-/raw/main/README.md) states an explicit license (no CC0/CC-BY/other SPDX identifier, no LICENSE file content surfaced) or an explicit redistribution/commercial-use permission for the bulk file, despite describing the acquisition as making the database 'a public resource' and 'publicly available.' 'Publicly available' and 'freely readable' are not license grants, and this registry treats an unstated licence as unknown, which forbids redistribution per this file's own convention (see the file header). Per x402-research-gateway#19's explicit instruction (no scraping of restricted or unclearly licensed data; a source whose terms are unverified is registered without operational endpoints), this entry carries no route_ids, no base_url the gateway calls, and no adapter: it is registry-only, describing that the source exists and what it covers with a link, until a human confirms an explicit licence for the bulk dataset (or the gateway continues relying solely on the per-DOI crossmark path above, which needs no separate licence because it inherits Crossref's own CC0 terms)."
+    identifier_schemes: []
+    last_verified: "2026-08-18"
+    notes: "Do NOT scrape or bulk-download this dataset from gitlab.com/crossref/retraction-watch-data without a human confirming its licence first. The gateway's operational retraction/correction coverage for Crossref-indexed works already comes from the crossmark entry above, which is CC0 and needs no separate permission."

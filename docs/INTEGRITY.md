@@ -47,18 +47,40 @@ nothing, so an unmapped term is carried rather than coerced.
 
 | Provider | Source field | What it contributes |
 |---|---|---|
-| Crossref | `updated-by`, `update-to`, `update-policy` | Crossmark update relations in both directions, with the notice DOI and date |
+| Crossref / Crossmark | `updated-by`, `update-to`, `update-policy` | Crossmark update relations in both directions, with the notice DOI and date |
 | Europe PMC | `commentCorrectionList` | the PubMed correction, retraction, and expression-of-concern relations |
 | DataCite | `relatedIdentifiers` | depositor-declared version history and obsoletion |
+| arXiv | the version number already carried in the record id | new_version when the fetched record is v2 or later, naming the base submission as the affected work and the current version as the notice |
 
 Direction follows the assertion. A Crossref record naming works it updates
 produces assertions about those works, annotated `notice_is_queried_record`.
 A record naming works that update it produces assertions about itself.
 
-No commercially licensed retraction dataset is integrated. Retraction Watch
-data reaches Crossref under Crossref's own terms and is read there; any
-separate licensed dataset would need its access and licence terms verified
-before implementation, and none has been.
+## Retraction Watch (x402-research-gateway#19)
+
+No commercially licensed retraction dataset is integrated, and none is
+scraped. Retraction Watch's original database was acquired by Crossref from
+the Center for Scientific Integrity in 2023. Verified live 2026-08-18 against
+Crossref's own documentation, retractionwatch.com's user guide, and the
+dataset's README at `gitlab.com/crossref/retraction-watch-data`:
+
+- **Per-DOI retraction signal**: already covered, no separate integration
+  needed. Crossref's own documentation states retractions from this
+  acquisition "appear in the update-to field via the Crossref REST API" —
+  the same `update-to`/`updated-by` field the Crossref/Crossmark adapter
+  above already reads, under Crossref's CC0 metadata terms.
+- **Standalone bulk dataset** (the full CSV/git history at
+  `gitlab.com/crossref/retraction-watch-data`): registry-only
+  (`config/providers.yaml`, provider_id `retraction-watch-crossref-dataset`).
+  No page consulted — Crossref's announcement, Crossref's REST API docs,
+  retractionwatch.com's user guide, or the dataset's own README — states an
+  explicit licence (no CC0/CC-BY/SPDX identifier, no LICENSE file content
+  found) or an explicit redistribution permission for the bulk file.
+  "Publicly available" is not a licence grant, and this registry treats an
+  unstated licence as unknown, which forbids redistribution. The registry
+  entry records what the source is and where it lives and claims no route
+  and ingests nothing. Do not scrape or bulk-download it without a human
+  confirming an explicit licence first.
 
 ## Coverage
 

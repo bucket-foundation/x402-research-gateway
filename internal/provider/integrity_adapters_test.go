@@ -201,6 +201,62 @@ func TestDataCiteIntegrity_VersionHistoryOnly(t *testing.T) {
 	}
 }
 
+// arxivV3Fixture is a submission arXiv currently serves at v3. arXiv itself
+// asserts that v1 and v2 of the same base identifier are superseded.
+const arxivV3Fixture = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/2101.00001v3</id>
+    <updated>2021-03-01T00:00:00Z</updated>
+    <published>2021-01-01T00:00:00Z</published>
+    <title>A result revised twice</title>
+    <summary>abstract</summary>
+  </entry>
+</feed>`
+
+func TestArXivIntegrity_VersionSupersession(t *testing.T) {
+	recs := ArXivNormalizer{}.Normalize([]byte(arxivV3Fixture))
+	if len(recs) != 1 {
+		t.Fatalf("want 1 record, got %d", len(recs))
+	}
+	got := (arxivIdentity{}).IntegrityAssertions(recs[0], integAt)
+	if len(got) != 1 {
+		t.Fatalf("want 1 assertion, got %d", len(got))
+	}
+	a := got[0]
+	if a.Status != integrity.StatusNewVersion || !a.Recognized {
+		t.Fatalf("status = %+v", a)
+	}
+	if a.NoticeID != "2101.00001v3" {
+		t.Fatalf("notice = %q", a.NoticeID)
+	}
+	if a.Work.Key() != "arxiv:2101.00001" {
+		t.Fatalf("affected work = %q", a.Work.Key())
+	}
+	if a.Annotations["current_version"] != "3" {
+		t.Fatalf("annotations = %v", a.Annotations)
+	}
+}
+
+// arxivV1Fixture is a submission at its first version: nothing to supersede.
+const arxivV1Fixture = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>http://arxiv.org/abs/2101.00002v1</id>
+    <updated>2021-01-01T00:00:00Z</updated>
+    <published>2021-01-01T00:00:00Z</published>
+    <title>A first submission</title>
+    <summary>abstract</summary>
+  </entry>
+</feed>`
+
+func TestArXivIntegrity_FirstVersionAssertsNothing(t *testing.T) {
+	recs := ArXivNormalizer{}.Normalize([]byte(arxivV1Fixture))
+	if got := (arxivIdentity{}).IntegrityAssertions(recs[0], integAt); got != nil {
+		t.Fatalf("v1 should assert nothing superseded, got %v", got)
+	}
+}
+
 func TestIntegrityAssertions_NeverPanicOnUnknownBody(t *testing.T) {
 	junk := NormalizedRecord{ID: "x", Raw: []byte(`{"nope":true}`)}
 	empty := NormalizedRecord{ID: "x"}
@@ -214,12 +270,16 @@ func TestIntegrityAssertions_NeverPanicOnUnknownBody(t *testing.T) {
 		if got := (dataciteIdentity{}).IntegrityAssertions(rec, integAt); got != nil {
 			t.Fatalf("datacite returned %v", got)
 		}
+		if got := (arxivIdentity{}).IntegrityAssertions(rec, integAt); got != nil {
+			t.Fatalf("arxiv returned %v", got)
+		}
 	}
 }
 
 func TestIntegrityCapabilityReported(t *testing.T) {
 	for _, a := range []*Adapter{CrossrefSearchAdapter, CrossrefFetchAdapter,
-		EuropePMCSearchAdapter, EuropePMCFetchAdapter, DataCiteSearchAdapter, DataCiteFetchAdapter} {
+		EuropePMCSearchAdapter, EuropePMCFetchAdapter, DataCiteSearchAdapter, DataCiteFetchAdapter,
+		ArXivSearchAdapter, ArXivFetchAdapter} {
 		if !a.Supports(CapIntegrity) {
 			t.Fatalf("%s does not report the integrity capability", a.ID)
 		}

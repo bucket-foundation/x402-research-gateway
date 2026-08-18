@@ -203,3 +203,57 @@ func (dataciteIdentity) Coverage() string {
 	return "DataCite publishes depositor-declared version and obsoletion relations for research outputs. " +
 		"It has no retraction vocabulary, so a DataCite record reporting nothing says nothing about retraction."
 }
+
+// ---------- arXiv ----------
+
+// IntegrityAssertions reports arXiv's own version supersession
+// (x402-research-gateway#19): each submission's Atom id carries the version
+// number arXiv currently serves for that base identifier, and versions are
+// sequential integers arXiv assigns itself. A record fetched at v(N) with
+// N>1 is arXiv's own statement that the base submission has a newer version
+// than whichever one an earlier caller may have cited; the notice is this
+// record's own identifier, the same shape crossrefIdentity uses when a
+// record is itself the notice.
+//
+// The affected Work is the base identifier with no version suffix, not
+// v(N-1) specifically: identity.Identifier.Key() for an arXiv scheme already
+// drops the version so that cross-version resolution works
+// (RelVersionOf), and asserting per prior version here would produce
+// assertions whose Work and Notice keys collide and collapse under
+// integrity.Build's per-ID dedup, silently losing the fact for a submission
+// three or more versions deep. One assertion against the unversioned work,
+// naming the current version as the notice, says everything the identity
+// model can distinguish: this work has a version beyond whatever was cited.
+//
+// arXiv has no retraction or correction vocabulary; an author who withdraws
+// a submission does so in free-text prose inside the abstract or comment
+// field, which this adapter does not parse into a status because turning
+// prose into a typed integrity assertion risks misreading it, and a false
+// retraction is worse than no signal.
+func (a arxivIdentity) IntegrityAssertions(rec NormalizedRecord, at time.Time) []integrity.Assertion {
+	r, ok := a.parse(rec)
+	if !ok || r.Version == "" {
+		return nil
+	}
+	if atoiSafe(r.Version) < 2 {
+		return nil
+	}
+	baseID := r.ID
+	if idx := strings.LastIndex(baseID, "v"); idx > 0 {
+		baseID = baseID[:idx]
+	}
+	work := integrity.NewEndpoint(baseID)
+	work.CanonicalURL = "https://arxiv.org/abs/" + baseID
+
+	asrt := integrity.New("arxiv", "arxiv:version", work, "new_version", at).WithNotice(r.ID)
+	asrt.Notice.CanonicalURL = firstNonEmpty(r.AbsURL, "https://arxiv.org/abs/"+r.ID)
+	asrt.Annotations = map[string]string{"current_version": r.Version}
+	return []integrity.Assertion{asrt}
+}
+
+func (arxivIdentity) Coverage() string {
+	return "arXiv publishes its own sequential version numbers per submission: a record at v(N) names every " +
+		"earlier version of the same submission as superseded. arXiv has no retraction or correction " +
+		"vocabulary; an author withdrawal is free text in the abstract or comment field, which this adapter " +
+		"does not parse into a status."
+}

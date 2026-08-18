@@ -336,26 +336,28 @@ func (dataciteSync) SyncCapability() SyncCapability {
 
 // DataCiteSearchAdapter backs route ID "datacite-search".
 var DataCiteSearchAdapter = &Adapter{
-	ID:                 "datacite-search",
-	Description:        "DataCite /dois search over dataset, software, and other research-output DOIs.",
-	Searcher:           dataciteCursorPagination{},
-	Normalizer:         DataCiteNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   dataciteIdentity{},
-	DescriptorProvider: dataciteIdentity{},
-	AssetProvider:      dataciteIdentity{},
-	SyncProvider:       dataciteSync{},
+	ID:                     "datacite-search",
+	Description:            "DataCite /dois search over dataset, software, and other research-output DOIs.",
+	Searcher:               dataciteCursorPagination{},
+	Normalizer:             DataCiteNormalizer{},
+	CitationProvider:       GenericCitationProvider{},
+	IdentityProvider:       dataciteIdentity{},
+	DescriptorProvider:     dataciteIdentity{},
+	AssetProvider:          dataciteIdentity{},
+	ObjectRelationProvider: dataciteIdentity{},
+	SyncProvider:           dataciteSync{},
 }
 
 // DataCiteFetchAdapter backs route ID "datacite-fetch".
 var DataCiteFetchAdapter = &Adapter{
-	ID:                 "datacite-fetch",
-	Description:        "DataCite single DOI record.",
-	Fetcher:            dataciteFetchByDOI{},
-	Normalizer:         DataCiteNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   dataciteIdentity{},
-	DescriptorProvider: dataciteIdentity{},
-	AssetProvider:      dataciteIdentity{},
-	SyncProvider:       dataciteSync{},
+	ID:                     "datacite-fetch",
+	Description:            "DataCite single DOI record.",
+	Fetcher:                dataciteFetchByDOI{},
+	Normalizer:             DataCiteNormalizer{},
+	CitationProvider:       GenericCitationProvider{},
+	IdentityProvider:       dataciteIdentity{},
+	DescriptorProvider:     dataciteIdentity{},
+	AssetProvider:          dataciteIdentity{},
+	ObjectRelationProvider: dataciteIdentity{},
+	SyncProvider:           dataciteSync{},
 }

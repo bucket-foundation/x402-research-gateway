@@ -49,7 +49,7 @@ feed402 enveloping behind small composable Go interfaces in
 [`internal/provider`](internal/provider) (`Searcher`, `Fetcher`,
 `Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
 `SyncProvider`, `IdentityProvider`, `DescriptorProvider`,
-`CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+`ObjectRelationProvider`, `CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
 declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
 remain the cheapest way to add a simple REST upstream, proxied unchanged by
 [`internal/handler/proxy.go`](internal/handler/proxy.go).

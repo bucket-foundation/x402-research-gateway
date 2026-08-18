@@ -24,6 +24,7 @@ import (
 	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
+	"github.com/gianyrox/x402-research-gateway/internal/relation"
 )
 
 // Capability names an operation category, mirroring the feed402 SPEC §1.1
@@ -58,6 +59,11 @@ const (
 	// not know this string degrades it to "an operation I cannot drive,"
 	// which the spec requires and which costs it nothing.
 	CapIdentityResolution Capability = "identity_resolution"
+	// CapRelations is a second extension capability under the same rule:
+	// the spec's list names datasets, software, and patents as operation
+	// categories but has no name for "the links a provider publishes
+	// between research objects" (x402-research-gateway#7).
+	CapRelations Capability = "relations"
 )
 
 // NormalizedRecord is one upstream result, decoupled from any particular
@@ -198,6 +204,21 @@ type AssetProvider interface {
 	Assets(record NormalizedRecord) []Asset
 }
 
+// ObjectRelationProvider reports the links a provider publishes between
+// research objects: a work and its dataset, its software, the trial it
+// reports, the correction issued against it (x402-research-gateway#7).
+//
+// The provider's own relation term is what an implementation must carry;
+// internal/relation adds any normalized term. An implementation that drops
+// a relation because the gateway has no word for it is wrong, and
+// relation.NormalizePredicate exists so it never has to.
+//
+// Implementations must never panic and must return nil for a body shape
+// they do not recognize.
+type ObjectRelationProvider interface {
+	ObjectRelations(record NormalizedRecord, at time.Time) []relation.Relation
+}
+
 // VocabularyProvider reports concept/term lookup for ontology-shaped
 // providers. No adapter implements it yet; seam for x402-research-gateway#14.
 type VocabularyProvider interface {
@@ -305,15 +326,16 @@ type Adapter struct {
 	ID          string
 	Description string
 
-	Searcher           Searcher
-	Fetcher            Fetcher
-	Normalizer         Normalizer
-	CitationProvider   CitationProvider
-	AssetProvider      AssetProvider
-	VocabularyProvider VocabularyProvider
-	SyncProvider       SyncProvider
-	IdentityProvider   IdentityProvider
-	DescriptorProvider DescriptorProvider
+	Searcher               Searcher
+	Fetcher                Fetcher
+	Normalizer             Normalizer
+	CitationProvider       CitationProvider
+	AssetProvider          AssetProvider
+	ObjectRelationProvider ObjectRelationProvider
+	VocabularyProvider     VocabularyProvider
+	SyncProvider           SyncProvider
+	IdentityProvider       IdentityProvider
+	DescriptorProvider     DescriptorProvider
 
 	CitationGraphProvider CitationGraphProvider
 }
@@ -334,6 +356,9 @@ func (a *Adapter) Capabilities() []Capability {
 	}
 	if a.AssetProvider != nil {
 		caps = append(caps, CapAssets)
+	}
+	if a.ObjectRelationProvider != nil {
+		caps = append(caps, CapRelations)
 	}
 	if a.VocabularyProvider != nil {
 		caps = append(caps, CapVocabulary)

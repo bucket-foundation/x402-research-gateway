@@ -23,8 +23,8 @@
 
 | Lifecycle status | Sources |
 |---|---|
-| `researched` | 87 |
-| `implemented` | 5 |
+| `researched` | 86 |
+| `implemented` | 6 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -193,7 +193,7 @@
 | **Dimensions** | `researched` | `scholarly_metadata` | Commercial research graph | ~140M | `https://app.dimensions.ai/api/` | oauth, paid | contract | proprietary | `unknown` | ⚠️ skip default | — | — | — | Paid — only if Gian has licence. |
 | **Lens.org** | `researched` | `patent_database` | Patents + scholarly | ~260M scholar + 140M patent | `https://api.lens.org/` | api-key (free tier, limited) | 1000/mo free | mixed | `unknown` | query | `lens` | `https://www.lens.org/lens/scholar/article/{id}` | — | Rare legitimate patent + scholar link. |
 | **ORCID Public API** | `researched` | `author_registry` | Author identifiers | ~20M | `https://pub.orcid.org/v3.0/{orcid}` | none (2-legged oauth for bulk) | polite | CC0 | `allowed` | raw | `orcid` | `https://orcid.org/{id}` | — | Person-graph primitive. |
-| **ROR (Research Org Registry)** | `researched` | `organization_registry` | Institution identifiers | ~110k | `https://api.ror.org/organizations` | none | polite | CC0 | `allowed` | raw, query | `ror` | `https://ror.org/{id}` | — | Institution-graph primitive. |
+| **ROR (Research Org Registry)** | `implemented` | `organization_registry` | Institution identifiers, external identifier mappings, and organizational relationships | ~110k | `https://api.ror.org/v2/organizations` | none as of 2026-08-17; ROR documentation states a client ID will be required by Q3 2026 | 2000 requests per 5 minutes per IP unregistered; drops to 50 per 5 minutes after the Q3 2026 client-ID requirement | CC0 | `allowed` | raw, query | `ror` | `https://ror.org/{id}` | 2026-08-17 | v2 schema (v1 deprecated). External identifiers (GRID, ISNI, Wikidata, FundRef) are preserved verbatim rather than folded into the identity graph's own scheme registry. Name variants (display, acronym, alias, per-language label) are preserved rather than reduced to one string. Relationships (parent, child, successor, predecessor, related) become typed identity relations with the direction inverted to match ROR's far-side-labeled convention. status (active/inactive/withdrawn) is preserved so a superseded record stays distinguishable from a live one. Versioned bulk data dumps are published to data.ror.org / Zenodo on a periodic (not scheduled) cadence; this adapter does not fetch them, so bulk_access is false. Verified live against api.ror.org 2026-08-17. |
 | **Wikidata** | `researched` | `controlled_vocabulary` | Structured knowledge graph (everything) | ~110M items | `https://www.wikidata.org/w/api.php` | none | 5/s SPARQL polite | CC0 | `allowed` | raw, query (SPARQL) | `wikidata` | `https://www.wikidata.org/wiki/{Qid}` | — | SPARQL = power tool. Insight-tier heavy user. Endpoints/format: SPARQL at https://query.wikidata.org/sparql |
 | **Wikipedia REST** | `researched` | `full_text_repository` | Encyclopedia articles, summaries, refs | ~60M articles all langs | `https://en.wikipedia.org/api/rest_v1/page/summary/{title}` | polite user-agent required | 200/s w/ UA | CC-BY-SA | `allowed` | raw, query | `wikipedia` | `https://en.wikipedia.org/wiki/{title}` | — | Must send a descriptive `User-Agent`. |
 | **DOAJ** | `researched` | `scholarly_metadata` | Directory of Open Access Journals | ~20k journals | `https://doaj.org/api/` | none | polite | CC-BY | `allowed` | query | `doaj` | `https://doaj.org/article/{id}` | — | Journal + article. |

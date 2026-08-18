@@ -51,5 +51,11 @@ func DefaultRegistry() Registry {
 		EuropePMCFetchAdapter.ID:      EuropePMCFetchAdapter,
 		EuropePMCReferencesAdapter.ID: EuropePMCReferencesAdapter,
 		EuropePMCCitedByAdapter.ID:    EuropePMCCitedByAdapter,
+
+		// ROR (x402-research-gateway#30): organizational identity, external
+		// identifier mappings, name variants, and hierarchy/successor
+		// relations, none of which the declarative path can express.
+		RORSearchAdapter.ID: RORSearchAdapter,
+		RORFetchAdapter.ID:  RORFetchAdapter,
 	}
 }

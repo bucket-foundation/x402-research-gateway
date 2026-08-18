@@ -28,6 +28,25 @@ const (
 	// evidence. It never becomes RelSameWork; a consumer decides whether to
 	// act on it. Enforced by Graph.Add.
 	RelPossibleSameWork RelationType = "possible_same_work"
+
+	// Organizational relations (x402-research-gateway#30). An institution's
+	// identity is temporal: it merges, splits, and is renamed, and the
+	// superseded record stays retrievable rather than being overwritten.
+	//
+	// RelParentOf points from a parent organization to a child.
+	RelParentOf RelationType = "parent_of"
+	// RelChildOf points from a child organization to its parent, the
+	// inverse of RelParentOf.
+	RelChildOf RelationType = "child_of"
+	// RelSuccessorOf points from a successor organization to the
+	// organization it succeeded.
+	RelSuccessorOf RelationType = "successor_of"
+	// RelPredecessorOf points from a predecessor organization to the
+	// organization that succeeded it, the inverse of RelSuccessorOf.
+	RelPredecessorOf RelationType = "predecessor_of"
+	// RelRelatedOrg is ROR's own "related" relationship type, for
+	// organizational ties that are neither hierarchical nor successional.
+	RelRelatedOrg RelationType = "related_org"
 )
 
 // EvidenceKind separates a fact a provider published from a fact the

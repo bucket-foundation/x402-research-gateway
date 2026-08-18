@@ -1967,23 +1967,36 @@ providers:
   - provider_id: "ror"
     name: "ROR (Research Org Registry)"
     provider_type: organization_registry
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "Institution identifiers"
+    coverage: "Institution identifiers, external identifier mappings, and organizational relationships"
     corpus_size: "~110k"
-    base_url: "https://api.ror.org/organizations"
+    base_url: "https://api.ror.org/v2/organizations"
     source_prefix: "ror"
     canonical_url: "https://ror.org/{id}"
     tier_fit: "raw, query"
-    auth: "none"
-    rate_limit: "polite"
+    auth: "none as of 2026-08-17; ROR documentation states a client ID will be required by Q3 2026"
+    rate_limit: "2000 requests per 5 minutes per IP unregistered; drops to 50 per 5 minutes after the Q3 2026 client-ID requirement"
     license: "CC0"
     rights:
       metadata_license: "CC0"
       redistribution: allowed
-    notes: "Institution-graph primitive."
+      verified_on: "2026-08-17"
+      notes: "ROR has no per-record content distinct from its metadata; the organizational record is the content, and it carries the same CC0 licence as every other record."
+    identifier_schemes:
+      - ror
+    pagination: "page"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-17"
+    route_ids:
+      - ror-search
+      - ror-fetch
+    notes: "v2 schema (v1 deprecated). External identifiers (GRID, ISNI, Wikidata, FundRef) are preserved verbatim rather than folded into the identity graph's own scheme registry. Name variants (display, acronym, alias, per-language label) are preserved rather than reduced to one string. Relationships (parent, child, successor, predecessor, related) become typed identity relations with the direction inverted to match ROR's far-side-labeled convention. status (active/inactive/withdrawn) is preserved so a superseded record stays distinguishable from a live one. Versioned bulk data dumps are published to data.ror.org / Zenodo on a periodic (not scheduled) cadence; this adapter does not fetch them, so bulk_access is false. Verified live against api.ror.org 2026-08-17."
 
   - provider_id: "wikidata"
     name: "Wikidata"

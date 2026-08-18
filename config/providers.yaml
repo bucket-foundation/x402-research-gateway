@@ -135,23 +135,34 @@ providers:
   - provider_id: "oeis"
     name: "OEIS (Sloane)"
     provider_type: mathematical_object_database
-    status: researched
+    status: implemented
     section: "1.1"
     fields:
       - mathematics
-    coverage: "Integer sequences, formulae, cross-refs"
+    coverage: "Integer sequences with terms, offset, formulae, cross-references (xref), and authorship, exposed as source objects rather than reshaped into a citation-shaped record. xref cross-references are carried through the generic relation model as an unrecognized \"xref\" predicate between two oeis-sequence objects, since OEIS's own xref field is prose, not a typed relation vocabulary."
     corpus_size: "~380k sequences"
     base_url: "https://oeis.org/search?q={q}&fmt=json"
     source_prefix: "oeis"
     canonical_url: "https://oeis.org/{id}"
     tier_fit: "raw (`/Axxxxxx`), query (`/search`)"
-    auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY-NC 3.0"
+    auth: "none; sits behind Cloudflare bot-mitigation that 403s a request with no User-Agent header, so a route operator must set one"
+    rate_limit: "polite; no numeric ceiling published"
+    license: "CC-BY-SA-4.0"
     rights:
-      metadata_license: "CC-BY-NC 3.0"
+      metadata_license: "CC-BY-SA-4.0"
       redistribution: allowed
-    notes: "The canonical combinatorics lookup. Clean JSON. Endpoints/format: record at https://oeis.org/{Axxxxxx}"
+      terms_url: "https://oeis.org/wiki/The_OEIS_End-User_License_Agreement"
+      verified_on: "2026-08-18"
+      notes: "Corrected from a prior CC-BY-NC-3.0 entry: the current EULA states CC BY-SA 4.0 site-wide, which requires attribution and share-alike redistribution rather than merely non-commercial use."
+    identifier_schemes:
+      - oeis
+    pagination: "offset (a raw index into the result stream, not a page number)"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/oeis.go's OEISNormalizer parses the bare JSON array oeis.org/search returns. ObjectRelations extracts every A-number oeis.org's own xref prose mentions via pattern (regexp), deduped, self-excluded. The canonical combinatorics lookup. x402-research-gateway#17."
 
   - provider_id: "mathscinet"
     name: "MathSciNet (AMS)"
@@ -217,23 +228,34 @@ providers:
   - provider_id: "lmfdb"
     name: "LMFDB"
     provider_type: mathematical_object_database
-    status: researched
+    status: implemented
     section: "1.1"
     fields:
       - mathematics
-    coverage: "L-functions, modular forms, number-theory objects"
+    coverage: "L-functions, modular forms, number-theory objects across dozens of independent tables (elliptic curves, modular forms, L-functions, number fields, ...). The adapter is table-agnostic by design: normalizing every field each table publishes would require one struct per table and contradicts native-structure preservation, so only the shared {table, data[]} envelope is parsed and each row's own fields are preserved verbatim on Raw regardless of table."
     corpus_size: "10M+ objects"
-    base_url: "https://www.lmfdb.org/api/"
+    base_url: "https://www.lmfdb.org/api/{table}/"
     source_prefix: "lmfdb"
-    canonical_url: "https://www.lmfdb.org/{path}"
+    canonical_url: "https://www.lmfdb.org/api/{table}/?_format=json&id={id}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY-SA"
+    rate_limit: "polite; no numeric ceiling published"
+    license: "CC-BY-SA (unverified this pass)"
     rights:
-      metadata_license: "CC-BY-SA"
+      metadata_license: "CC-BY-SA (as previously recorded; not independently reverified)"
       redistribution: allowed
-    notes: "Number-theory canon. API still beta; HTML scrape fallback viable."
+      terms_url: "https://www.lmfdb.org/license"
+      verified_on: "2026-08-18"
+      notes: "lmfdb.org/license sits behind a JavaScript \"prove you're human\" interstitial this verification pass could not get past without a browser. The CC-BY-SA designation carried over from a prior registry entry is left as previously recorded rather than re-asserted as freshly verified; flagged here as unverified this pass per #17's own instruction to flag rather than block."
+    identifier_schemes:
+      - lmfdb-row
+    pagination: "offset (_offset/_limit query params)"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/lmfdb.go's LMFDBNormalizer parses the shared table-response envelope; LMFDB has no dedicated single-object endpoint, only the same table query filtered to one row, so lmfdb-fetch reuses the search route's shape with a field filter. API is documented as v0/beta; HTML scrape fallback remains viable if it changes shape. x402-research-gateway#17."
 
   - provider_id: "findstat"
     name: "FindStat"
@@ -1129,23 +1151,35 @@ providers:
   - provider_id: "biomodels"
     name: "BioModels"
     provider_type: biological_database
-    status: researched
+    status: implemented
     section: "1.5"
     fields:
       - biophysics_life_sciences
-    coverage: "Curated mathematical models of biology"
+    coverage: "Curated computational systems-biology models (SBML, some MATLAB/Octave), exposed as source objects rather than reshaped into a citation-shaped record. The model file content itself (SBML/MATLAB) is not fetched by this adapter; it discovers and cites the model, per x402-research-gateway#17's non-goal against computing over source objects."
     corpus_size: "~3k curated, ~2M auto"
-    base_url: "https://www.ebi.ac.uk/biomodels/search?query=...&format=json"
+    base_url: "https://www.biomodels.org/search?query={q}&format=json"
     source_prefix: "biomodels"
-    canonical_url: "https://www.ebi.ac.uk/biomodels/{id}"
+    canonical_url: "https://www.biomodels.org/{id}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
-    license: "CC0"
+    rate_limit: "polite; no numeric ceiling published"
+    license: "CC0-1.0"
     rights:
-      metadata_license: "CC0"
+      metadata_license: "CC0-1.0"
       redistribution: allowed
-    notes: "SBML models, quantitative."
+      terms_url: "https://www.biomodels.org/termsofuse"
+      verified_on: "2026-08-18"
+      notes: "BioModels' own site states models are \"freely accessible\" under the CC0 waiver, verified live 2026-08-18."
+    identifier_schemes:
+      - biomodels-id
+    pagination: "offset"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+      - sbml
+    last_verified: "2026-08-18"
+    notes: "internal/provider/biomodels.go's BioModelsNormalizer handles both the search-list shape (models: [...]) and the single-model fetch shape (publicationId carries the accession the search summary's id field carries). base_url corrected from the prior www.ebi.ac.uk/biomodels host, which 301-redirects every path to www.biomodels.org; this adapter calls the latter directly. SBML models, quantitative. x402-research-gateway#17."
 
   - provider_id: "human-protein-atlas"
     name: "Human Protein Atlas"

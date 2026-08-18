@@ -378,3 +378,170 @@ routes:
         mailto: research@viatika.ai
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- arXiv (x402-research-gateway#25) ---
+  # Atom XML, parsed by the adapter. Per-submission licences vary, so the
+  # route declares no content licence; rights are read per record.
+  - id: arxiv-search
+    path: /research/arxiv/search
+    method: GET
+    description: "Search arXiv preprints (mathematics, physics, computer science). Atom XML, parsed by the adapter."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: arxiv
+      providerUrl: https://arxiv.org/
+      license: per-record
+    upstream:
+      baseUrl: http://export.arxiv.org
+      path: /api/query
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [search_query, id_list, start, max_results, sortBy, sortOrder]
+      timeoutSeconds: 30
+
+  - id: arxiv-fetch
+    path: /research/arxiv/fetch
+    method: GET
+    description: "Fetch an arXiv submission by identifier, version preserved."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: arxiv
+      providerUrl: https://arxiv.org/
+      license: per-record
+    upstream:
+      baseUrl: http://export.arxiv.org
+      path: /api/query
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id_list, max_results]
+      timeoutSeconds: 30
+
+  # --- Europe PMC (x402-research-gateway#26) ---
+  # Free to read and open to redistribute are different; the adapter reads
+  # both per record and the route declares no blanket content licence.
+  - id: epmc-search
+    path: /research/epmc/search
+    method: GET
+    description: "Search Europe PMC: PubMed literature plus preprints and the PMC open-access subset."
+    price: "0.001"
+    cacheTtlSeconds: 1800
+    feed402Tier: query
+    citation:
+      sourcePrefix: epmc
+      providerUrl: https://europepmc.org/
+      license: per-record
+    upstream:
+      baseUrl: https://www.ebi.ac.uk/europepmc/webservices/rest
+      path: /search
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        format: json
+        resultType: core
+      passThrough: [query, pageSize, cursorMark, resultType, sort, format]
+      timeoutSeconds: 30
+
+  - id: epmc-fetch
+    path: /research/epmc/fetch
+    method: GET
+    description: "Fetch a Europe PMC record by PMID, PMCID, or DOI."
+    price: "0.001"
+    cacheTtlSeconds: 1800
+    feed402Tier: raw
+    citation:
+      sourcePrefix: epmc
+      providerUrl: https://europepmc.org/
+      license: per-record
+    upstream:
+      baseUrl: https://www.ebi.ac.uk/europepmc/webservices/rest
+      path: /search
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      queryParams:
+        format: json
+        resultType: core
+      passThrough: [query, format, resultType]
+      timeoutSeconds: 30
+
+  - id: epmc-references
+    path: /research/epmc/references
+    method: GET
+    description: "Europe PMC outbound references for an article."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: epmc
+      providerUrl: https://europepmc.org/
+      license: per-record
+    upstream:
+      baseUrl: https://www.ebi.ac.uk/europepmc/webservices/rest
+      pathTemplate: /{source}/{id}/references
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [source, id, format, pageSize, page]
+      timeoutSeconds: 30
+
+  - id: epmc-cited-by
+    path: /research/epmc/cited-by
+    method: GET
+    description: "Europe PMC inbound citations for an article."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: epmc
+      providerUrl: https://europepmc.org/
+      license: per-record
+    upstream:
+      baseUrl: https://www.ebi.ac.uk/europepmc/webservices/rest
+      pathTemplate: /{source}/{id}/citations
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [source, id, format, pageSize, page]
+      timeoutSeconds: 30
+
+  # --- DataCite (x402-research-gateway#24) ---
+  # The CC0 metadata licence and the deposited object's licence are
+  # different; the adapter reads the object licence per record.
+  - id: datacite-search
+    path: /research/datacite/search
+    method: GET
+    description: "Search DataCite DOIs: datasets, software, and other research outputs that are not journal articles."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: datacite
+      providerUrl: https://datacite.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.datacite.org
+      path: /dois
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [query, resource-type-id, "page[size]", "page[number]", "page[cursor]", sort]
+      timeoutSeconds: 20
+
+  - id: datacite-fetch
+    path: /research/datacite/fetch
+    method: GET
+    description: "Fetch a single DataCite DOI record."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: datacite
+      providerUrl: https://datacite.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.datacite.org
+      pathTemplate: /dois/{id}
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20

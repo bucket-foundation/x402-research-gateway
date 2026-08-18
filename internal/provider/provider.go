@@ -127,13 +127,68 @@ type CitationProvider interface {
 	Citations(route *config.RouteConfig, records []NormalizedRecord) []Hit
 }
 
-// Asset is the provider-package's minimal echo of feed402 SPEC §3.5's asset
-// model — just enough for AssetProvider to have a concrete return type
-// ahead of x402-research-gateway#8, which will extend this.
+// Redistribution is what a rights statement permits. The three values are
+// deliberately not a boolean: UNKNOWN is not ALLOWED, and a consumer must
+// never be able to read an absent statement as permission.
+type Redistribution string
+
+const (
+	// RedistributionUnknown means no rights statement was found. It grants
+	// nothing. It is the zero value, so a Rights struct nobody filled in
+	// permits nothing by construction.
+	RedistributionUnknown    Redistribution = "unknown"
+	RedistributionAllowed    Redistribution = "allowed"
+	RedistributionProhibited Redistribution = "prohibited"
+)
+
+// Rights is one rights statement, per record or per representation.
+//
+// Providers publish rights per record, and a provider-level licence string
+// is wrong for most of them: arXiv submissions carry per-submission
+// licences from CC0 through the arXiv non-exclusive licence, Europe PMC's
+// open-access subset mixes several, and a CC0 DataCite record routinely
+// describes an object under some other licence or none. So rights are read
+// per record and never inherited from a provider default.
+//
+// Free to read and open to redistribute are different facts, which is why
+// Redistribution is separate from License.
+type Rights struct {
+	// License is the provider's own licence string or identifier, verbatim.
+	License string
+	// LicenseURL is the licence document the provider pointed at.
+	LicenseURL string
+	// Redistribution is what the statement permits. Zero value is unknown.
+	Redistribution Redistribution
+	// Source names where the statement came from, e.g. the record field it
+	// was read out of, so a consumer can audit the claim.
+	Source string
+	// FreeToRead records that the provider says the content is readable
+	// without payment. It says nothing about redistribution.
+	FreeToRead bool
+}
+
+// Permits reports whether this statement allows redistribution. An unknown
+// or absent statement returns false.
+func (r Rights) Permits() bool { return r.Redistribution == RedistributionAllowed }
+
+// Asset is the provider-package's echo of feed402 SPEC §3.5's asset model.
 type Asset struct {
 	AssetID        string
 	Representation string
 	CanonicalURL   string
+	// Rights are the terms on this representation, which differ from the
+	// record's metadata rights and, in many cases, from another
+	// representation of the same record. An abstract, a PDF, and a TeX
+	// source are three representations with three sets of terms.
+	Rights Rights
+}
+
+// RecordRightsProvider reports the rights on a record's content, read from
+// that record rather than from a provider-level default. Optional: an
+// adapter that does not implement it reports no statement, which grants
+// nothing.
+type RecordRightsProvider interface {
+	RecordRights(record NormalizedRecord) Rights
 }
 
 // AssetProvider reports representation discovery (feed402 SPEC §3.5). No

@@ -362,6 +362,7 @@ var EuropePMCSearchAdapter = &Adapter{
 	DescriptorProvider:   epmcIdentity{},
 	AssetProvider:        epmcIdentity{},
 	RecordRightsProvider: epmcIdentity{},
+	IntegrityProvider:    epmcIdentity{},
 	SyncProvider:         epmcSync{},
 }
 
@@ -376,6 +377,7 @@ var EuropePMCFetchAdapter = &Adapter{
 	DescriptorProvider:   epmcIdentity{},
 	AssetProvider:        epmcIdentity{},
 	RecordRightsProvider: epmcIdentity{},
+	IntegrityProvider:    epmcIdentity{},
 	SyncProvider:         epmcSync{},
 }
 

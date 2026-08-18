@@ -328,6 +328,7 @@ var CrossrefSearchAdapter = &Adapter{
 	AssetProvider:          crossrefIdentity{},
 	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
+	IntegrityProvider:      crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }
 
@@ -345,5 +346,6 @@ var CrossrefFetchAdapter = &Adapter{
 	AssetProvider:          crossrefIdentity{},
 	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
+	IntegrityProvider:      crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/gianyrox/x402-research-gateway/internal/citation"
 	"github.com/gianyrox/x402-research-gateway/internal/config"
 	"github.com/gianyrox/x402-research-gateway/internal/identity"
+	"github.com/gianyrox/x402-research-gateway/internal/integrity"
 	"github.com/gianyrox/x402-research-gateway/internal/relation"
 )
 
@@ -64,6 +65,10 @@ const (
 	// categories but has no name for "the links a provider publishes
 	// between research objects" (x402-research-gateway#7).
 	CapRelations Capability = "relations"
+	// CapIntegrity is a third extension capability: the spec has no name
+	// for "the update and integrity notices a provider publishes about a
+	// work" (x402-research-gateway#9).
+	CapIntegrity Capability = "integrity"
 )
 
 // NormalizedRecord is one upstream result, decoupled from any particular
@@ -228,6 +233,20 @@ type ObjectRelationProvider interface {
 	ObjectRelations(record NormalizedRecord, at time.Time) []relation.Relation
 }
 
+// IntegrityProvider reports the update and integrity notices a provider
+// publishes about a work: corrections, errata, retractions, withdrawals,
+// expressions of concern, and new versions (x402-research-gateway#9).
+//
+// An implementation reports what its own upstream said and nothing more. It
+// never reconciles against another provider, and it never drops a notice
+// whose term the gateway has no status for; integrity.New keeps the term.
+//
+// Implementations must never panic and must return nil for a body shape
+// they do not recognize.
+type IntegrityProvider interface {
+	IntegrityAssertions(record NormalizedRecord, at time.Time) []integrity.Assertion
+}
+
 // VocabularyProvider reports concept/term lookup for ontology-shaped
 // providers. No adapter implements it yet; seam for x402-research-gateway#14.
 type VocabularyProvider interface {
@@ -343,6 +362,7 @@ type Adapter struct {
 	AvailabilityReporter   AvailabilityReporter
 	RecordRightsProvider   RecordRightsProvider
 	ObjectRelationProvider ObjectRelationProvider
+	IntegrityProvider      IntegrityProvider
 	VocabularyProvider     VocabularyProvider
 	SyncProvider           SyncProvider
 	IdentityProvider       IdentityProvider
@@ -370,6 +390,9 @@ func (a *Adapter) Capabilities() []Capability {
 	}
 	if a.ObjectRelationProvider != nil {
 		caps = append(caps, CapRelations)
+	}
+	if a.IntegrityProvider != nil {
+		caps = append(caps, CapIntegrity)
 	}
 	if a.VocabularyProvider != nil {
 		caps = append(caps, CapVocabulary)

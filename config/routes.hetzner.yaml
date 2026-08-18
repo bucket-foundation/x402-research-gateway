@@ -79,6 +79,20 @@ feed402:
     maxConcurrency: 4
     timeoutSeconds: 10
 
+  # Scholarly integrity and update graph (x402-research-gateway#9). Takes
+  # an identifier and returns every provider's correction, retraction,
+  # withdrawal, expression-of-concern, and version assertions side by side.
+  # The gateway does not adjudicate between providers that disagree, and
+  # absence of a notice is not a clearance.
+  integrity:
+    enabled: true
+    path: /research/integrity
+    price: "0.005"
+    description: "Corrections, retractions, withdrawals, expressions of concern, and versions, asserted per provider"
+    providerRouteIds: []
+    maxConcurrency: 4
+    timeoutSeconds: 10
+
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
 

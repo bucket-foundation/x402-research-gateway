@@ -275,11 +275,12 @@ type IntegrityProvider interface {
 	IntegrityAssertions(record NormalizedRecord, at time.Time) []integrity.Assertion
 }
 
-// VocabularyProvider reports concept/term lookup for ontology-shaped
-// providers. No adapter implements it yet; seam for x402-research-gateway#14.
-type VocabularyProvider interface {
-	LookupTerm(id string) (NormalizedRecord, bool)
-}
+// Vocabulary capability interfaces live in vocabulary.go
+// (x402-research-gateway#14, #15): a thesaurus, an OWL ontology, a
+// classification code, and a nomenclature standard are different kinds of
+// object, so "vocabulary support" is a set of small, independently
+// implementable interfaces rather than one monolithic VocabularyProvider,
+// matching the Searcher/Fetcher/Paginator composability convention above.
 
 // IdentityProvider extracts cross-provider identifiers and provider-asserted
 // relations from a record, feeding internal/identity's resolver
@@ -393,10 +394,21 @@ type Adapter struct {
 	IntegrityProvider      IntegrityProvider
 	Paginator              Paginator
 	ReleaseReporter        ReleaseReporter
-	VocabularyProvider     VocabularyProvider
-	SyncProvider           SyncProvider
-	IdentityProvider       IdentityProvider
-	DescriptorProvider     DescriptorProvider
+	// Vocabulary capabilities (x402-research-gateway#14, #15): a provider
+	// sets whichever of these its upstream actually supports; CapVocabulary
+	// is reported if any is present.
+	TermSearcher            TermSearcher
+	ConceptGetter           ConceptGetter
+	BroaderNarrowerProvider BroaderNarrowerProvider
+	RelatedTermProvider     RelatedTermProvider
+	SynonymProvider         SynonymProvider
+	MappingProvider         MappingProvider
+	HistoricalTermProvider  HistoricalTermProvider
+	DeprecatedTermProvider  DeprecatedTermProvider
+	CurrentReleaseProvider  CurrentReleaseProvider
+	SyncProvider            SyncProvider
+	IdentityProvider        IdentityProvider
+	DescriptorProvider      DescriptorProvider
 
 	CitationGraphProvider CitationGraphProvider
 }
@@ -424,7 +436,9 @@ func (a *Adapter) Capabilities() []Capability {
 	if a.IntegrityProvider != nil {
 		caps = append(caps, CapIntegrity)
 	}
-	if a.VocabularyProvider != nil {
+	if a.TermSearcher != nil || a.ConceptGetter != nil || a.BroaderNarrowerProvider != nil ||
+		a.RelatedTermProvider != nil || a.SynonymProvider != nil || a.MappingProvider != nil ||
+		a.HistoricalTermProvider != nil || a.DeprecatedTermProvider != nil || a.CurrentReleaseProvider != nil {
 		caps = append(caps, CapVocabulary)
 	}
 	if a.IdentityProvider != nil {

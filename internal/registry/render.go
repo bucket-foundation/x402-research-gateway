@@ -11,15 +11,16 @@ import (
 // SectionTitles names the RESEARCH-INDEX.md sections the registry generates.
 // A provider's Section field selects one of these.
 var SectionTitles = map[string]string{
-	"1.1": "Mathematics",
-	"1.2": "Physics",
-	"1.3": "Chemistry",
-	"1.4": "Information / Computation",
-	"1.5": "Biophysics / Life Sciences",
-	"1.6": "Cosmology / Astronomy / Space",
-	"1.7": "Mind / Neuroscience / Psychology",
-	"1.8": "Earth Sciences",
-	"1.9": "Cross-cutting discovery APIs",
+	"1.1":  "Mathematics",
+	"1.2":  "Physics",
+	"1.3":  "Chemistry",
+	"1.4":  "Information / Computation",
+	"1.5":  "Biophysics / Life Sciences",
+	"1.6":  "Cosmology / Astronomy / Space",
+	"1.7":  "Mind / Neuroscience / Psychology",
+	"1.8":  "Earth Sciences",
+	"1.9":  "Cross-cutting discovery APIs",
+	"1.10": "Vocabularies, ontologies, and semantic standards",
 }
 
 // mdEscape keeps a cell from breaking the surrounding table. Pipes are the

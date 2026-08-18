@@ -191,9 +191,9 @@ type RecordRightsProvider interface {
 	RecordRights(record NormalizedRecord) Rights
 }
 
-// AssetProvider reports representation discovery (feed402 SPEC §3.5). No
-// adapter in this package implements it yet; the interface exists as the
-// defined seam x402-research-gateway#8 (rights-aware asset discovery) fills.
+// AssetProvider reports representation discovery (feed402 SPEC §3.5). The
+// defined seam x402-research-gateway#8 (rights-aware asset discovery)
+// fills; arXiv, DataCite, Europe PMC, ROR, and Unpaywall implement it.
 type AssetProvider interface {
 	Assets(record NormalizedRecord) []Asset
 }

@@ -57,5 +57,9 @@ func DefaultRegistry() Registry {
 		// relations, none of which the declarative path can express.
 		RORSearchAdapter.ID: RORSearchAdapter,
 		RORFetchAdapter.ID:  RORFetchAdapter,
+
+		// Unpaywall (x402-research-gateway#28): rights-aware asset discovery
+		// over open-access locations. DOI-only lookup, no search endpoint.
+		UnpaywallFetchAdapter.ID: UnpaywallFetchAdapter,
 	}
 }

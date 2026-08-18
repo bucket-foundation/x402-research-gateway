@@ -1011,23 +1011,36 @@ providers:
   - provider_id: "biorxiv-medrxiv"
     name: "bioRxiv / medRxiv"
     provider_type: preprint_repository
-    status: researched
+    status: implemented
     section: "1.5"
     fields:
       - biophysics_life_sciences
-    coverage: "Life-sci preprints"
+    coverage: "Life-sci preprints. No keyword-search endpoint; the API is a date-interval listing (cursor-paged) plus DOI lookup returning a preprint's full version history. published_doi (the provider's `published` field) carries the preprint-to-published-work relation once one exists, exposed through IdentityProvider.AssertedRelations."
     corpus_size: "~400k (bioRxiv) + ~60k (medRxiv)"
-    base_url: "https://api.biorxiv.org/details/biorxiv/{doi}"
+    base_url: "https://api.biorxiv.org/details/{server}"
     source_prefix: "biorxiv / medrxiv"
-    canonical_url: "https://www.biorxiv.org/content/{doi}"
+    canonical_url: "https://doi.org/{doi}"
     tier_fit: "raw, query"
     auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY (most)"
+    rate_limit: "polite; no numeric ceiling published"
+    license: "per-record (author-chosen at submission, e.g. cc_by, cc_no); unknown until read per record"
     rights:
-      metadata_license: "CC-BY (most)"
-      redistribution: allowed
-    notes: "Covers both with same API shape. Endpoints/format: /pubs/biorxiv/{interval}"
+      metadata_license: "per-record"
+      redistribution: unknown
+      verified_on: "2026-08-18"
+      notes: "bioRxiv/medRxiv authors choose their own preprint licence at submission (observed cc_by and cc_no on live records during verification); RecordRights preserves the provider's own license string verbatim rather than assuming a server-wide default, and redistribution is not asserted by the provider even where a licence string is present."
+    identifier_schemes:
+      - doi
+    pagination: "cursor (integer offset over the date-interval listing, 100 records/page)"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+      - jats-xml
+    structured_fulltext: true
+    fulltext_access: true
+    last_verified: "2026-08-18"
+    notes: "internal/provider/biorxiv.go's BioRxivNormalizer and shared biorxivIdentity cover both servers via {server}=biorxiv|medrxiv on the same api.biorxiv.org API. Adapter IDs biorxiv-search, biorxiv-fetch, medrxiv-search, medrxiv-fetch are registered in internal/provider/registry.go; no config/routes.yaml entry exists yet, so none serves traffic (status implemented, not production). A preprint with several versions yields one record per version rather than a single merged record. x402-research-gateway#13."
 
   - provider_id: "uniprot"
     name: "UniProt"

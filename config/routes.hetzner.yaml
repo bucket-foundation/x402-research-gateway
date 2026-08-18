@@ -545,3 +545,43 @@ routes:
         User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
       passThrough: [id]
       timeoutSeconds: 20
+
+  # --- ROR (x402-research-gateway#30) ---
+  # No auth as of 2026-08-17. Metadata licence is CC0 for every record.
+  - id: ror-search
+    path: /research/ror/search
+    method: GET
+    description: "Search ROR: research organizations, institutions, and funders."
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: query
+    citation:
+      sourcePrefix: ror
+      providerUrl: https://ror.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.ror.org
+      path: /v2/organizations
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [query, page, filter]
+      timeoutSeconds: 20
+
+  - id: ror-fetch
+    path: /research/ror/fetch
+    method: GET
+    description: "Fetch a ROR organization record by ROR ID."
+    price: "0.001"
+    cacheTtlSeconds: 86400
+    feed402Tier: raw
+    citation:
+      sourcePrefix: ror
+      providerUrl: https://ror.org/
+      license: CC0
+    upstream:
+      baseUrl: https://api.ror.org
+      path: /v2/organizations
+      headers:
+        User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20

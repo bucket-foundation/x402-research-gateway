@@ -270,28 +270,30 @@ func (crossrefSync) SyncCapability() SyncCapability {
 
 // CrossrefSearchAdapter backs route ID "crossref-search".
 var CrossrefSearchAdapter = &Adapter{
-	ID:                 "crossref-search",
-	Description:        "Crossref /works search over CC0 DOI metadata.",
-	Searcher:           crossrefCursorPagination{},
-	Normalizer:         CrossrefWorksNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   crossrefIdentity{},
-	DescriptorProvider: crossrefIdentity{},
-	AssetProvider:      crossrefIdentity{},
-	SyncProvider:       crossrefSync{},
+	ID:                     "crossref-search",
+	Description:            "Crossref /works search over CC0 DOI metadata.",
+	Searcher:               crossrefCursorPagination{},
+	Normalizer:             CrossrefWorksNormalizer{},
+	CitationProvider:       GenericCitationProvider{},
+	IdentityProvider:       crossrefIdentity{},
+	DescriptorProvider:     crossrefIdentity{},
+	AssetProvider:          crossrefIdentity{},
+	ObjectRelationProvider: crossrefIdentity{},
+	SyncProvider:           crossrefSync{},
 }
 
 // CrossrefFetchAdapter backs route ID "crossref-fetch": one DOI in, one
 // work record out. It shares the search adapter's Normalizer, which handles
 // the single-record message shape.
 var CrossrefFetchAdapter = &Adapter{
-	ID:                 "crossref-fetch",
-	Description:        "Crossref single work record by DOI.",
-	Fetcher:            crossrefFetchByDOI{},
-	Normalizer:         CrossrefWorksNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   crossrefIdentity{},
-	DescriptorProvider: crossrefIdentity{},
-	AssetProvider:      crossrefIdentity{},
-	SyncProvider:       crossrefSync{},
+	ID:                     "crossref-fetch",
+	Description:            "Crossref single work record by DOI.",
+	Fetcher:                crossrefFetchByDOI{},
+	Normalizer:             CrossrefWorksNormalizer{},
+	CitationProvider:       GenericCitationProvider{},
+	IdentityProvider:       crossrefIdentity{},
+	DescriptorProvider:     crossrefIdentity{},
+	AssetProvider:          crossrefIdentity{},
+	ObjectRelationProvider: crossrefIdentity{},
+	SyncProvider:           crossrefSync{},
 }

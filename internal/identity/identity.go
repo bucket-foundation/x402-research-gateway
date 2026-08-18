@@ -42,6 +42,11 @@ const (
 	SchemeZbMATH          Scheme = "zbmath"
 	SchemeORCID           Scheme = "orcid"
 	SchemeROR             Scheme = "ror"
+	// SchemeDOAJ and SchemeOpenAIRE (x402-research-gateway#13, Wave 2) are
+	// opaque provider-local ids, registered so appendID does not silently
+	// drop them the way an unregistered scheme would.
+	SchemeDOAJ     Scheme = "doaj"
+	SchemeOpenAIRE Scheme = "openaire"
 )
 
 // Identifier is one identifier under one scheme. Value is the normalized
@@ -216,6 +221,26 @@ func init() {
 			return "", "", false
 		}
 		return strings.ToLower(m[1]), "", true
+	})
+	// DOAJ article ids are opaque hex strings the provider mints itself; no
+	// normalization beyond trimming applies.
+	RegisterScheme(SchemeDOAJ, func(raw string) (string, string, bool) {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			return "", "", false
+		}
+		return v, "", true
+	})
+	// OpenAIRE result ids are opaque dedup-cluster keys
+	// (e.g. "doi_dedup___::...", "openaire____::..."); no normalization
+	// beyond trimming applies, matching the DBLP precedent above for a
+	// provider-minted, path-shaped identifier.
+	RegisterScheme(SchemeOpenAIRE, func(raw string) (string, string, bool) {
+		v := strings.TrimSpace(raw)
+		if v == "" {
+			return "", "", false
+		}
+		return v, "", true
 	})
 }
 

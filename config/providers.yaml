@@ -2206,23 +2206,35 @@ providers:
   - provider_id: "openaire-graph"
     name: "OpenAIRE Graph"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "EU-funded OA research graph"
-    corpus_size: "~140M"
-    base_url: "https://api.openaire.eu/search/"
+    coverage: "EU-funded OA research graph. Funding-aware: research products carry project and funder links elsewhere in OpenAIRE's data model, out of scope for this adapter's search/fetch surface."
+    corpus_size: "~140M (numFound reported ~1.16M for a broad keyword query at verification time; the ~140M figure is the whole-graph total across all entity types, not just research products)"
+    base_url: "https://api.openaire.eu/graph/v3/research-products"
     source_prefix: "openaire"
-    canonical_url: "https://explore.openaire.eu/search/publication?pid={doi}"
+    canonical_url: "https://doi.org/{doi} (falls back to https://explore.openaire.eu/search/publication?pid={id} when no DOI is present)"
     tier_fit: "raw, query"
-    auth: "none (key optional)"
-    rate_limit: "polite"
-    license: "CC-BY"
+    auth: "none for search/fetch; registered access raises rate-limit ceilings but this adapter does not need it"
+    rate_limit: "polite; no numeric ceiling published for unauthenticated single requests"
+    license: "unknown (per-instance; no blanket metadata licence found)"
     rights:
-      metadata_license: "CC-BY"
-      redistribution: allowed
-    notes: "Funding-aware. Endpoints/format: + graph API https://graph.openaire.eu/"
+      metadata_license: "unknown; OpenAIRE's licence documentation states data are \"openly available\" but does not, as of this verification, publish an explicit CC0/CC-BY/ODC designation for the Graph's own metadata the way DOAJ or DBLP do"
+      redistribution: unknown
+      terms_url: "https://graph.openaire.eu/docs/"
+      verified_on: "2026-08-18"
+      notes: "Rights are read per record from the instance-level `license` field, which most records leave unset; RecordRights reports unknown rather than inheriting a blanket claim this adapter could not verify."
+    identifier_schemes:
+      - openaire
+      - doi
+    pagination: "page (offset, capped at 10,000 results/query per OpenAIRE's own docs); a separate cursor mode exists for exhaustive traversal, not implemented this revision"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/openaire.go's OpenAIRENormalizer handles both the search-list shape (results: [...]) and the single-record fetch shape. v3 (graph/v3/research-products) is OpenAIRE's current Graph API generation, replacing the legacy XML-flavored api.openaire.eu/search/publications endpoint this gateway does not use. x402-research-gateway#13."
 
   - provider_id: "dimensions"
     name: "Dimensions"
@@ -2397,23 +2409,35 @@ providers:
   - provider_id: "doaj"
     name: "DOAJ"
     provider_type: scholarly_metadata
-    status: researched
+    status: implemented
     section: "1.9"
     fields:
       - cross_cutting
-    coverage: "Directory of Open Access Journals"
-    corpus_size: "~20k journals"
+    coverage: "Directory of Open Access Journals: journal + article metadata for journals DOAJ has vetted as open access. This adapter covers the article surface; journal-level search (/api/search/journals) is a separate DOAJ endpoint not implemented this revision."
+    corpus_size: "~20k journals, ~195k articles per a live search total at verification time"
     base_url: "https://doaj.org/api/"
     source_prefix: "doaj"
     canonical_url: "https://doaj.org/article/{id}"
     tier_fit: "query"
-    auth: "none"
-    rate_limit: "polite"
-    license: "CC-BY"
+    auth: "none for search or single-article fetch; an API key exists but per DOAJ's own docs it is issued to publishers submitting data, not to readers"
+    rate_limit: "2 requests/second, small bursts (up to 5) queued, per DOAJ's published API docs"
+    license: "CC0-1.0"
     rights:
-      metadata_license: "CC-BY"
+      metadata_license: "CC0-1.0"
       redistribution: allowed
-    notes: "Journal + article."
+      terms_url: "https://doaj.org/docs/faq/"
+      verified_on: "2026-08-18"
+      notes: "DOAJ's FAQ states \"we choose to waive all rights under a CC0 waiver\" for its own processed metadata, distinct from the copyright of the underlying articles. Article full-text access is a separate per-link fact carried on bibjson.link and is never inferred from journal-level openness; RecordRights covers only the bibliographic record."
+    identifier_schemes:
+      - doaj
+      - doi
+    pagination: "page (page/pageSize query params)"
+    bulk_access: false
+    incremental_updates: false
+    formats:
+      - json
+    last_verified: "2026-08-18"
+    notes: "internal/provider/doaj.go's DOAJNormalizer handles both the search-list shape (results: [...]) and the single-article fetch shape. x402-research-gateway#13."
 
   - provider_id: "doab"
     name: "DOAB"

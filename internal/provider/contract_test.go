@@ -66,6 +66,10 @@ var normalizerContracts = []struct {
 	{"zbmath/search", ZbMATHNormalizer{}, zbmathSearchListFixture, 1, false},
 	{"zbmath/fetch", ZbMATHNormalizer{}, zbmathFetchFixture, 1, false},
 	{"zenodo/search", ZenodoNormalizer{}, zenodoSearchFixture, 1, false},
+	{"doaj/search", DOAJNormalizer{}, doajSearchFixture, 1, false},
+	{"doaj/fetch", DOAJNormalizer{}, doajSingleFixture, 1, false},
+	{"openaire/search", OpenAIRENormalizer{}, openaireSearchFixture, 1, false},
+	{"openaire/fetch", OpenAIRENormalizer{}, openaireSingleFixture, 1, false},
 }
 
 func TestNormalizerContracts(t *testing.T) {
@@ -109,6 +113,7 @@ func TestNormalizerContracts_CoverEveryRegisteredNormalizer(t *testing.T) {
 		"europe-pmc/search", "dblp/publ-search", "dblp/author-search",
 		"dblp/record-xml", "orcid/record", "orcid/search", "unpaywall/doi",
 		"ror/search", "zbmath/search", "zenodo/search",
+		"doaj/search", "doaj/fetch", "openaire/search", "openaire/fetch",
 	}
 	for _, w := range want {
 		if !registered[w] {

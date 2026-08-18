@@ -90,5 +90,15 @@ func DefaultRegistry() Registry {
 		// rights, none of which the declarative path can express.
 		ORCIDFetchAdapter.ID:  ORCIDFetchAdapter,
 		ORCIDSearchAdapter.ID: ORCIDSearchAdapter,
+
+		// DOAJ (x402-research-gateway#13, Wave 2): CC0 metadata, per-link
+		// asset rights, credential-free.
+		DOAJSearchAdapter.ID: DOAJSearchAdapter,
+		DOAJFetchAdapter.ID:  DOAJFetchAdapter,
+
+		// OpenAIRE (x402-research-gateway#13, Wave 2): the Graph v3 API,
+		// credential-free, per-instance rights read rather than assumed.
+		OpenAIRESearchAdapter.ID: OpenAIRESearchAdapter,
+		OpenAIREFetchAdapter.ID:  OpenAIREFetchAdapter,
 	}
 }

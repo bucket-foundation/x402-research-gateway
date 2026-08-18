@@ -197,6 +197,15 @@ type RecordRightsProvider interface {
 	RecordRights(record NormalizedRecord) Rights
 }
 
+// AvailabilityReporter states whether a provider can reach a representation
+// of a record, distinguishing retrievable, restricted, and absent. Optional:
+// an adapter that does not implement it contributes no availability
+// statement, and its assets are read as retrievable locations only because
+// it published them.
+type AvailabilityReporter interface {
+	Availability(record NormalizedRecord) Availability
+}
+
 // AssetProvider reports representation discovery (feed402 SPEC §3.5). The
 // defined seam x402-research-gateway#8 (rights-aware asset discovery)
 // fills; arXiv, DataCite, Europe PMC, ROR, and Unpaywall implement it.
@@ -331,6 +340,8 @@ type Adapter struct {
 	Normalizer             Normalizer
 	CitationProvider       CitationProvider
 	AssetProvider          AssetProvider
+	AvailabilityReporter   AvailabilityReporter
+	RecordRightsProvider   RecordRightsProvider
 	ObjectRelationProvider ObjectRelationProvider
 	VocabularyProvider     VocabularyProvider
 	SyncProvider           SyncProvider

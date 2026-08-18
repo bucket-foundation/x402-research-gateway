@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
@@ -220,6 +221,50 @@ func (c crossrefIdentity) Descriptor(rec NormalizedRecord) Descriptor {
 	return d
 }
 
+// RecordRights reads the licence the publisher deposited on the work. It is
+// not Crossref's CC0, which covers the metadata record and says nothing
+// about the content. A work with no deposited licence reports unknown even
+// when a `link` entry exists, because a link is a locator.
+//
+// Crossref deposits a licence per content version (vor, am, tdm) with an
+// embargo in `delay-in-days`. The statement reported here is the first
+// deposited licence, with its content version and any embargo recorded in
+// Source, so a consumer can see which version the licence covers rather
+// than reading it as covering all of them.
+func (c crossrefIdentity) RecordRights(rec NormalizedRecord) Rights {
+	w, ok := c.parse(rec)
+	if !ok {
+		return Rights{Redistribution: RedistributionUnknown, Source: "crossref (unparseable record)"}
+	}
+	if len(w.License) == 0 {
+		return Rights{
+			Redistribution: RedistributionUnknown,
+			Source:         "crossref:license (absent); the CC0 metadata licence does not cover the content",
+		}
+	}
+	first := w.License[0]
+	source := "crossref:license"
+	if first.ContentVersion != "" {
+		source += "; content-version=" + first.ContentVersion
+	}
+	if first.DelayInDays > 0 {
+		source += "; delay-in-days=" + strconv.Itoa(first.DelayInDays)
+	}
+	rights := Rights{
+		LicenseURL:     first.URL,
+		Redistribution: RedistributionUnknown,
+		Source:         source,
+	}
+	l := strings.ToLower(first.URL)
+	switch {
+	case strings.Contains(l, "creativecommons.org/publicdomain/zero"):
+		rights.License, rights.Redistribution, rights.FreeToRead = "CC0", RedistributionAllowed, true
+	case strings.Contains(l, "creativecommons.org/licenses/by"):
+		rights.License, rights.Redistribution, rights.FreeToRead = "CC-BY family", RedistributionAllowed, true
+	}
+	return rights
+}
+
 // Assets reports the representations Crossref's `link` metadata names.
 //
 // A link is a locator. It is not permission, and this adapter does not
@@ -251,6 +296,9 @@ func (c crossrefIdentity) Assets(rec NormalizedRecord) []Asset {
 			AssetID:        "crossref:" + w.DOI + "#" + l.URL,
 			Representation: representation,
 			CanonicalURL:   l.URL,
+			// The deposited licence, which is unknown on most records. A
+			// link is never read as permission.
+			Rights: c.RecordRights(rec),
 		})
 	}
 	return out
@@ -278,6 +326,7 @@ var CrossrefSearchAdapter = &Adapter{
 	IdentityProvider:       crossrefIdentity{},
 	DescriptorProvider:     crossrefIdentity{},
 	AssetProvider:          crossrefIdentity{},
+	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }
@@ -294,6 +343,7 @@ var CrossrefFetchAdapter = &Adapter{
 	IdentityProvider:       crossrefIdentity{},
 	DescriptorProvider:     crossrefIdentity{},
 	AssetProvider:          crossrefIdentity{},
+	RecordRightsProvider:   crossrefIdentity{},
 	ObjectRelationProvider: crossrefIdentity{},
 	SyncProvider:           crossrefSync{},
 }

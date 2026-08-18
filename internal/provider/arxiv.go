@@ -331,27 +331,29 @@ func (arxivSync) SyncCapability() SyncCapability {
 
 // ArXivSearchAdapter backs route ID "arxiv-search".
 var ArXivSearchAdapter = &Adapter{
-	ID:                 "arxiv-search",
-	Description:        "arXiv query API over mathematics, physics, and computer science preprints.",
-	Searcher:           arxivOffsetPagination{},
-	Normalizer:         ArXivNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   arxivIdentity{},
-	DescriptorProvider: arxivIdentity{},
-	AssetProvider:      arxivIdentity{},
-	SyncProvider:       arxivSync{},
+	ID:                   "arxiv-search",
+	Description:          "arXiv query API over mathematics, physics, and computer science preprints.",
+	Searcher:             arxivOffsetPagination{},
+	Normalizer:           ArXivNormalizer{},
+	CitationProvider:     GenericCitationProvider{},
+	IdentityProvider:     arxivIdentity{},
+	DescriptorProvider:   arxivIdentity{},
+	AssetProvider:        arxivIdentity{},
+	RecordRightsProvider: arxivIdentity{},
+	SyncProvider:         arxivSync{},
 }
 
 // ArXivFetchAdapter backs route ID "arxiv-fetch": one arXiv identifier in,
 // one entry out, through the same Atom parser.
 var ArXivFetchAdapter = &Adapter{
-	ID:                 "arxiv-fetch",
-	Description:        "arXiv single submission by identifier, version preserved.",
-	Fetcher:            arxivFetchByID{},
-	Normalizer:         ArXivNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   arxivIdentity{},
-	DescriptorProvider: arxivIdentity{},
-	AssetProvider:      arxivIdentity{},
-	SyncProvider:       arxivSync{},
+	ID:                   "arxiv-fetch",
+	Description:          "arXiv single submission by identifier, version preserved.",
+	Fetcher:              arxivFetchByID{},
+	Normalizer:           ArXivNormalizer{},
+	CitationProvider:     GenericCitationProvider{},
+	IdentityProvider:     arxivIdentity{},
+	DescriptorProvider:   arxivIdentity{},
+	AssetProvider:        arxivIdentity{},
+	RecordRightsProvider: arxivIdentity{},
+	SyncProvider:         arxivSync{},
 }

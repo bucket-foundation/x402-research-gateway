@@ -38,6 +38,9 @@ field-by-field migration and deprecation window.
 | `/research/crossref/references` | Crossref deposited reference list | query |
 | `/research/crossref/search` | Crossref DOI metadata search | query |
 | `/research/crossref/fetch` | Crossref work record by DOI | raw |
+| `/research/assets` | Rights-aware asset discovery across open-access sources | query |
+| `/research/core/search` | CORE open-access aggregator search | query |
+| `/research/core/fetch` | CORE work record | raw |
 
 Routes, prices, and citation policies are declared in
 [`config/routes.yaml`](config/routes.yaml).
@@ -49,7 +52,8 @@ feed402 enveloping behind small composable Go interfaces in
 [`internal/provider`](internal/provider) (`Searcher`, `Fetcher`,
 `Normalizer`, `CitationProvider`, `AssetProvider`, `VocabularyProvider`,
 `SyncProvider`, `IdentityProvider`, `DescriptorProvider`,
-`ObjectRelationProvider`, `CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
+`ObjectRelationProvider`, `AvailabilityReporter`, `RecordRightsProvider`,
+`CitationGraphProvider`). A route needs no adapter at all: `config/routes.yaml`'s
 declarative fields (`baseUrl`, `pathTemplate`, `queryParams`, `passThrough`)
 remain the cheapest way to add a simple REST upstream, proxied unchanged by
 [`internal/handler/proxy.go`](internal/handler/proxy.go).

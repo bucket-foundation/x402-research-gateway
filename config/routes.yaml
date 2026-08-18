@@ -66,6 +66,19 @@ feed402:
     maxConcurrency: 4
     timeoutSeconds: 10
 
+  # Rights-aware asset discovery (x402-research-gateway#8). Takes an
+  # identifier, asks every provider that publishes representations of a
+  # work, and returns the locations with rights per representation. It
+  # discovers locations; it never fetches, mirrors, or re-serves content.
+  assets:
+    enabled: true
+    path: /research/assets
+    price: "0.005"
+    description: "Rights-aware discovery of the representations of a work, with per-asset rights and an explicit availability answer"
+    providerRouteIds: []
+    maxConcurrency: 4
+    timeoutSeconds: 10
+
 routes:
   # --- Health / Longevity / Nutrition / Psychedelics / Brain Chemistry ---
 
@@ -730,5 +743,49 @@ routes:
       pathTemplate: /v1/document/{id}
       headers:
         User-Agent: "x402-research-gateway/1.0 (mailto:research@viatika.ai)"
+      passThrough: [id]
+      timeoutSeconds: 20
+
+  # --- CORE (x402-research-gateway#8) ---
+  # CORE needs a free API key from core.ac.uk/services/api. The gateway
+  # holds no key: CORE_API_KEY comes from the operator's environment, and
+  # with it unset these routes send an empty bearer and CORE answers 401,
+  # which the asset endpoint reports as an upstream status rather than as
+  # "no copy found". Comment the routes out on a deployment with no key.
+  - id: core-search
+    path: /research/core/search
+    method: GET
+    description: "CORE open-access aggregator search, for full-text location discovery."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: query
+    citation:
+      sourcePrefix: core
+      providerUrl: https://core.ac.uk/
+      license: per-record
+    upstream:
+      baseUrl: https://api.core.ac.uk
+      path: /v3/search/works
+      headers:
+        Authorization: "Bearer ${CORE_API_KEY}"
+      passThrough: [q, limit, offset]
+      timeoutSeconds: 20
+
+  - id: core-fetch
+    path: /research/core/fetch
+    method: GET
+    description: "CORE single work record."
+    price: "0.001"
+    cacheTtlSeconds: 3600
+    feed402Tier: raw
+    citation:
+      sourcePrefix: core
+      providerUrl: https://core.ac.uk/
+      license: per-record
+    upstream:
+      baseUrl: https://api.core.ac.uk
+      pathTemplate: /v3/works/{id}
+      headers:
+        Authorization: "Bearer ${CORE_API_KEY}"
       passThrough: [id]
       timeoutSeconds: 20

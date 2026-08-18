@@ -353,28 +353,30 @@ func (epmcCitationGraph) Coverage() string {
 
 // EuropePMCSearchAdapter backs route ID "epmc-search".
 var EuropePMCSearchAdapter = &Adapter{
-	ID:                 "epmc-search",
-	Description:        "Europe PMC search across life-science literature, preprints, and the PMC open-access subset.",
-	Searcher:           epmcCursorPagination{},
-	Normalizer:         EuropePMCNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   epmcIdentity{},
-	DescriptorProvider: epmcIdentity{},
-	AssetProvider:      epmcIdentity{},
-	SyncProvider:       epmcSync{},
+	ID:                   "epmc-search",
+	Description:          "Europe PMC search across life-science literature, preprints, and the PMC open-access subset.",
+	Searcher:             epmcCursorPagination{},
+	Normalizer:           EuropePMCNormalizer{},
+	CitationProvider:     GenericCitationProvider{},
+	IdentityProvider:     epmcIdentity{},
+	DescriptorProvider:   epmcIdentity{},
+	AssetProvider:        epmcIdentity{},
+	RecordRightsProvider: epmcIdentity{},
+	SyncProvider:         epmcSync{},
 }
 
 // EuropePMCFetchAdapter backs route ID "epmc-fetch".
 var EuropePMCFetchAdapter = &Adapter{
-	ID:                 "epmc-fetch",
-	Description:        "Europe PMC single record by PMID, PMCID, or DOI.",
-	Fetcher:            epmcFetchByID{},
-	Normalizer:         EuropePMCNormalizer{},
-	CitationProvider:   GenericCitationProvider{},
-	IdentityProvider:   epmcIdentity{},
-	DescriptorProvider: epmcIdentity{},
-	AssetProvider:      epmcIdentity{},
-	SyncProvider:       epmcSync{},
+	ID:                   "epmc-fetch",
+	Description:          "Europe PMC single record by PMID, PMCID, or DOI.",
+	Fetcher:              epmcFetchByID{},
+	Normalizer:           EuropePMCNormalizer{},
+	CitationProvider:     GenericCitationProvider{},
+	IdentityProvider:     epmcIdentity{},
+	DescriptorProvider:   epmcIdentity{},
+	AssetProvider:        epmcIdentity{},
+	RecordRightsProvider: epmcIdentity{},
+	SyncProvider:         epmcSync{},
 }
 
 // EuropePMCReferencesAdapter backs route ID "epmc-references".

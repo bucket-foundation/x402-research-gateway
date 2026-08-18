@@ -77,6 +77,30 @@ type Feed402Config struct {
 	// fan-out; GET at the same path is free and returns the cost estimate,
 	// so an agent can price a call before paying for one.
 	Federated FederatedConfig `yaml:"federated"`
+	// Assets (optional) turns on rights-aware asset discovery
+	// (x402-research-gateway#8). When enabled the gateway registers a POST
+	// handler at Assets.Path that accepts {identifier}, asks every route
+	// whose adapter implements AssetProvider what representations it
+	// publishes, and returns the locations with rights stated per
+	// representation. It discovers locations and never fetches them.
+	Assets AssetsConfig `yaml:"assets"`
+}
+
+// AssetsConfig configures the asset-discovery endpoint.
+type AssetsConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	Path        string `yaml:"path"` // e.g. "/research/assets"
+	Price       string `yaml:"price"`
+	Description string `yaml:"description"`
+	// ProviderRouteIDs restricts fan-out to these route ids. Empty means
+	// every route whose adapter implements AssetProvider.
+	ProviderRouteIDs []string `yaml:"providerRouteIds"`
+	// MaxConcurrency bounds simultaneous upstream calls. Default 4.
+	MaxConcurrency int `yaml:"maxConcurrency"`
+	// TimeoutSeconds bounds each provider call. A provider that exceeds it
+	// is reported as a timeout, never as a provider with no assets.
+	// Default 10.
+	TimeoutSeconds int `yaml:"timeoutSeconds"`
 }
 
 // FederatedConfig configures the federated search endpoint.
@@ -348,6 +372,23 @@ func LoadFromFile(path string) (*GatewayConfig, error) {
 			}
 			if cfg.Feed402.Citations.TimeoutSeconds == 0 {
 				cfg.Feed402.Citations.TimeoutSeconds = 10
+			}
+		}
+		if cfg.Feed402.Assets.Enabled {
+			if cfg.Feed402.Assets.Path == "" {
+				cfg.Feed402.Assets.Path = "/research/assets"
+			}
+			if cfg.Feed402.Assets.Price == "" {
+				cfg.Feed402.Assets.Price = "0.005"
+			}
+			if cfg.Feed402.Assets.Description == "" {
+				cfg.Feed402.Assets.Description = "Rights-aware discovery of the representations of a work"
+			}
+			if cfg.Feed402.Assets.MaxConcurrency == 0 {
+				cfg.Feed402.Assets.MaxConcurrency = 4
+			}
+			if cfg.Feed402.Assets.TimeoutSeconds == 0 {
+				cfg.Feed402.Assets.TimeoutSeconds = 10
 			}
 		}
 		if cfg.Feed402.Federated.Enabled {

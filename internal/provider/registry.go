@@ -70,6 +70,14 @@ func DefaultRegistry() Registry {
 		DBLPAuthorSearchAdapter.ID: DBLPAuthorSearchAdapter,
 		DBLPFetchAdapter.ID:        DBLPFetchAdapter,
 
+		// CORE (x402-research-gateway#8): the open-access aggregator that
+		// carries full text rather than metadata, registered for its
+		// per-record rights and full-text location discovery. Its routes
+		// need an operator-supplied API key; without one the routes answer
+		// 401 and the asset endpoint reports that status.
+		CORESearchAdapter.ID: CORESearchAdapter,
+		COREFetchAdapter.ID:  COREFetchAdapter,
+
 		// zbMATH Open (x402-research-gateway#32): MSC codes with their
 		// edition preserved, and review text kept apart from bibliographic
 		// rights, neither of which the declarative path can express.

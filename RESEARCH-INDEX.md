@@ -23,8 +23,8 @@
 
 | Lifecycle status | Sources |
 |---|---|
-| `researched` | 83 |
-| `implemented` | 9 |
+| `researched` | 82 |
+| `implemented` | 10 |
 | `production` | 6 |
 | `sunset` | 3 |
 | `excluded` | 9 |
@@ -106,7 +106,7 @@
 | **ACM Digital Library** | `researched` | `scholarly_metadata` | ACM pubs | ~700k | `https://dl.acm.org/action/doSearch` | none (meta via CrossRef) | — | CC-BY where OA | `allowed` | query (CrossRef) | `acm` | `https://doi.org/{doi}` | — | No dedicated public REST — route via CrossRef. Endpoints/format: via CrossRef + (HTML) |
 | **IEEE Xplore** | `researched` | `scholarly_metadata` | IEEE metadata | ~6M | `https://developer.ieee.org/` | api-key (free, approval) | 200/day free | proprietary (meta summary OK) | `unknown` | query | `ieee` | `https://ieeexplore.ieee.org/document/{id}` | — | Metadata-only; full-text paywalled. Endpoints/format: (metadata API) |
 | **USENIX (open)** | `researched` | `full_text_repository` | Systems/security papers | ~15k | `HTML + CrossRef` | none | — | CC-BY | `allowed` | raw (via CrossRef) | `usenix` | `https://www.usenix.org/{path}` | — | Most USENIX papers open — fetch PDF via DOI. |
-| **CORE** | `researched` | `full_text_repository` | Open-access aggregator | ~290M articles, 30M full-text | `https://api.core.ac.uk/v3/` | api-key (free) | 10k/day | CC-BY where upstream OA | `allowed` | raw, query | `core` | `https://core.ac.uk/display/{id}` | — | OA full-text search — major asset for insight tier. |
+| **CORE** | `implemented` | `full_text_repository` | Open-access aggregator | ~290M articles, 30M full-text | `https://api.core.ac.uk/v3/` | api-key (free) | 10k/day | CC-BY where upstream OA | `unknown` | raw, query | `core` | `https://core.ac.uk/display/{id}` | — | OA full-text search — major asset for insight tier. Adapter implemented in x402-research-gateway#8 (internal/provider/core.go). Operational only where the operator supplies CORE_API_KEY; the gateway holds no key of its own. Location discovery only: the gateway never fetches, mirrors, or re-serves CORE-hosted content. |
 | **OpenReview** | `researched` | `full_text_repository` | Peer review archives (ICLR, NeurIPS, etc.) | ~200k submissions | `https://api.openreview.net/` | none (polite) | polite | CC-BY | `allowed` | raw, query | `openreview` | `https://openreview.net/forum?id={id}` | — | Only public source of peer-review text at scale. |
 | **Zenodo (CERN)** | `researched` | `dataset_repository` | Research outputs, datasets, code | ~5M records | `https://zenodo.org/api/records` | api-key optional | 100/min | per-record (often CC) | `unknown` | raw, query | `zenodo` | `https://zenodo.org/records/{id}` | — | Covers all sciences; CS + long-tail software prominent. |
 | **Software Heritage** | `researched` | `software_repository` | Source code archive | ~20B files | `https://archive.softwareheritage.org/api/1/` | none | polite | CC-BY (meta) | `allowed` | raw | `swh` | `https://archive.softwareheritage.org/{swhid}` | — | For code citation via SWHID — unique asset. |

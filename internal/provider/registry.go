@@ -61,5 +61,13 @@ func DefaultRegistry() Registry {
 		// Unpaywall (x402-research-gateway#28): rights-aware asset discovery
 		// over open-access locations. DOI-only lookup, no search endpoint.
 		UnpaywallFetchAdapter.ID: UnpaywallFetchAdapter,
+
+		// DBLP (x402-research-gateway#31): publication search, a first-class
+		// author search preserving DBLP's own homonym disambiguation, and
+		// XML-only single-record fetch, none of which the declarative path
+		// can express.
+		DBLPPublSearchAdapter.ID:   DBLPPublSearchAdapter,
+		DBLPAuthorSearchAdapter.ID: DBLPAuthorSearchAdapter,
+		DBLPFetchAdapter.ID:        DBLPFetchAdapter,
 	}
 }

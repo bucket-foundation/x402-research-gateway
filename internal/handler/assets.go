@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -254,6 +255,38 @@ func mapAvailability(a provider.Availability) asset.Availability {
 	}
 }
 
+// licenseAllowsResearchActions recognizes only licenses that provide
+// sufficiently broad rights for automated research acquisition. Restricted,
+// absent, or ambiguous licenses remain unknown.
+func licenseAllowsResearchActions(license, licenseURL string) bool {
+	name := strings.ToLower(strings.TrimSpace(license))
+	ref := strings.ToLower(strings.TrimSpace(licenseURL))
+	combined := name + " " + ref
+
+	// Do not convert conditional or no-derivatives licenses into an
+	// unconditional machine-action permission.
+	if strings.Contains(combined, "by-nc") ||
+		strings.Contains(combined, "by-nd") {
+		return false
+	}
+
+	if name == "cc0" ||
+		strings.HasPrefix(name, "cc0-") ||
+		strings.Contains(combined, "public-domain") ||
+		strings.Contains(combined, "publicdomain/") {
+		return true
+	}
+
+	if name == "cc-by" ||
+		strings.HasPrefix(name, "cc-by-") ||
+		strings.Contains(ref, "/licenses/by/") ||
+		strings.Contains(ref, "/licenses/by-sa/") {
+		return true
+	}
+
+	return false
+}
+
 // mapRights converts an adapter rights statement to the wire model. Only an
 // explicit allowance carries across as an allowance; every other value,
 // including an empty one, becomes unknown.
@@ -262,6 +295,8 @@ func mapRights(r provider.Rights, route *config.RouteConfig) asset.Rights {
 		License:        r.License,
 		LicenseURL:     r.LicenseURL,
 		Redistribution: asset.RedistributionUnknown,
+		TDM:            asset.PermissionUnknown,
+		Retention:      asset.PermissionUnknown,
 		Source:         r.Source,
 		FreeToRead:     r.FreeToRead,
 	}
@@ -270,6 +305,10 @@ func mapRights(r provider.Rights, route *config.RouteConfig) asset.Rights {
 		out.Redistribution = asset.RedistributionAllowed
 	case provider.RedistributionProhibited:
 		out.Redistribution = asset.RedistributionProhibited
+	}
+	if licenseAllowsResearchActions(r.License, r.LicenseURL) {
+		out.TDM = asset.PermissionAllowed
+		out.Retention = asset.PermissionAllowed
 	}
 	if route != nil {
 		out.TermsURL = route.Citation.ProviderURL

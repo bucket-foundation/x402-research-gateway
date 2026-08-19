@@ -45,11 +45,23 @@ const (
 	RedistributionProhibited Redistribution = "prohibited"
 )
 
+// Permission is an explicit permission for an action on content.
+// Unknown is the zero value and grants nothing.
+type Permission string
+
+const (
+	PermissionUnknown Permission = "unknown"
+	PermissionAllowed Permission = "allowed"
+	PermissionDenied  Permission = "denied"
+)
+
 // Rights is one rights statement, per record or per representation.
 type Rights struct {
 	License        string         `json:"license,omitempty"`
 	LicenseURL     string         `json:"license_url,omitempty"`
 	Redistribution Redistribution `json:"redistribution"`
+	TDM            Permission     `json:"tdm"`
+	Retention      Permission     `json:"retention"`
 	// Source names the upstream field the statement was read out of, so a
 	// consumer can audit the claim.
 	Source string `json:"source,omitempty"`
@@ -74,6 +86,12 @@ func (r Rights) Normalize() Rights {
 	if r.Redistribution == "" {
 		r.Redistribution = RedistributionUnknown
 	}
+	if r.TDM == "" {
+		r.TDM = PermissionUnknown
+	}
+	if r.Retention == "" {
+		r.Retention = PermissionUnknown
+	}
 	if r.Redistribution != RedistributionAllowed &&
 		r.Redistribution != RedistributionProhibited &&
 		r.Redistribution != RedistributionUnknown {
@@ -82,6 +100,20 @@ func (r Rights) Normalize() Rights {
 		r.Source = strings.TrimSpace(r.Source + " (unrecognized redistribution value " +
 			string(r.Redistribution) + "; treated as unknown)")
 		r.Redistribution = RedistributionUnknown
+	}
+	if r.TDM != PermissionAllowed &&
+		r.TDM != PermissionDenied &&
+		r.TDM != PermissionUnknown {
+		r.Source = strings.TrimSpace(r.Source + " (unrecognized tdm value " +
+			string(r.TDM) + "; treated as unknown)")
+		r.TDM = PermissionUnknown
+	}
+	if r.Retention != PermissionAllowed &&
+		r.Retention != PermissionDenied &&
+		r.Retention != PermissionUnknown {
+		r.Source = strings.TrimSpace(r.Source + " (unrecognized retention value " +
+			string(r.Retention) + "; treated as unknown)")
+		r.Retention = PermissionUnknown
 	}
 	return r
 }
